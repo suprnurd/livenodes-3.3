@@ -9,6 +9,9 @@
 #include "obfuscation.h"
 #include "sync.h"
 #include "util.h"
+#include "spork.h"
+
+#include <boost/lexical_cast.hpp>
 
 // keep track of the scanning errors I've seen
 map<uint256, int> mapSeenMasternodeScanningErrors;
@@ -65,6 +68,7 @@ CMasternode::CMasternode()
     pubKeyMasternode = CPubKey();
     sig = std::vector<unsigned char>();
     activeState = MASTERNODE_ENABLED;
+    deposit = 0 * COIN;
     sigTime = GetAdjustedTime();
     lastPing = CMasternodePing();
     cacheInputAge = 0;
@@ -90,6 +94,7 @@ CMasternode::CMasternode(const CMasternode& other)
     pubKeyMasternode = other.pubKeyMasternode;
     sig = other.sig;
     activeState = other.activeState;
+    deposit = other.deposit;
     sigTime = other.sigTime;
     lastPing = other.lastPing;
     cacheInputAge = other.cacheInputAge;
@@ -114,7 +119,14 @@ CMasternode::CMasternode(const CMasternodeBroadcast& mnb)
     pubKeyCollateralAddress = mnb.pubKeyCollateralAddress;
     pubKeyMasternode = mnb.pubKeyMasternode;
     sig = mnb.sig;
-    activeState = MASTERNODE_ENABLED;
+    if(IsDepositCoins(mnb.vin, deposit))
+        activeState = MASTERNODE_ENABLED;
+    else
+    {
+        deposit = 0u;
+        activeState = MASTERNODE_REMOVE;
+    }  activeState = MASTERNODE_REMOVE;
+
     sigTime = mnb.sigTime;
     lastPing = mnb.lastPing;
     cacheInputAge = 0;
@@ -329,12 +341,61 @@ bool CMasternode::IsValidNetAddr()
            (IsReachable(addr) && addr.IsRoutable());
 }
 
+////////////////////////////////////////////////////////////////////////////////////// LIVENODES
+unsigned CMasternode::Level(CAmount vin_val, int blockHeight)
+{
+  if (blockHeight >= 0) {
+    switch(vin_val) {
+        case 1000 * COIN: return 1;
+        case 2000 * COIN: return 2;
+        case 5000 * COIN: return 3;
+    }
+  }
+  return 0;
+}
+
+unsigned CMasternode::Level(const CTxIn& vin, int blockHeight)
+{
+    CAmount vin_val;
+
+    if(!IsDepositCoins(vin, vin_val))
+        return LevelValue::UNSPECIFIED;
+
+    return Level(vin_val, blockHeight);
+}
+
+bool CMasternode::IsDepositCoins(CAmount vin_val)
+{
+    return Level(vin_val, chainActive.Height());
+}
+
+bool CMasternode::IsDepositCoins(const CTxIn& vin, CAmount& vin_val)
+{
+    CTransaction prevout_tx;
+    uint256      hashBlock = 0;
+
+    bool vin_valid =  GetTransaction(vin.prevout.hash, prevout_tx, hashBlock, true)
+                   && (vin.prevout.n < prevout_tx.vout.size());
+
+    if(!vin_valid)
+        return false;
+
+    CAmount vin_amount = prevout_tx.vout[vin.prevout.n].nValue;
+
+    if(!IsDepositCoins(vin_amount))
+        return false;
+
+    vin_val = vin_amount;
+    return true;
+}
+
+////////////////////////////////////////////////////////////////////////////////////// LIVENODES
+
 CMasternodeBroadcast::CMasternodeBroadcast()
 {
     vin = CTxIn();
     addr = CService();
     pubKeyCollateralAddress = CPubKey();
-    pubKeyMasternode1 = CPubKey();
     sig = std::vector<unsigned char>();
     activeState = MASTERNODE_ENABLED;
     sigTime = GetAdjustedTime();
@@ -657,13 +718,11 @@ void CMasternodeBroadcast::Relay()
 bool CMasternodeBroadcast::Sign(CKey& keyCollateralAddress)
 {
     std::string errorMessage;
+    std::string vchPubKey(pubKeyCollateralAddress.begin(), pubKeyCollateralAddress.end());
+    std::string vchPubKey2(pubKeyMasternode.begin(), pubKeyMasternode.end());
     sigTime = GetAdjustedTime();
 
-    std::string strMessage;
-    if(chainActive.Height() < Params().Zerocoin_Block_V2_Start())
-    	strMessage = GetOldStrMessage();
-    else
-    	strMessage = GetNewStrMessage();
+    std::string strMessage = addr.ToString() + boost::lexical_cast<std::string>(sigTime) + vchPubKey + vchPubKey2 + boost::lexical_cast<std::string>(protocolVersion);
 
     if (!obfuScationSigner.SignMessage(strMessage, errorMessage, sig, keyCollateralAddress))
     	return error("CMasternodeBroadcast::Sign() - Error: %s", errorMessage);

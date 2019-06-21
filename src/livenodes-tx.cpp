@@ -47,10 +47,10 @@ static bool AppInitRawTx(int argc, char* argv[])
 
     if (argc < 2 || mapArgs.count("-?") || mapArgs.count("-help")) {
         // First part of help message is specific to this utility
-        std::string strUsage = _("Pivx Core pivx-tx utility version") + " " + FormatFullVersion() + "\n\n" +
+        std::string strUsage = _("LivenodesCoin Core livenodes-tx utility version") + " " + FormatFullVersion() + "\n\n" +
                                _("Usage:") + "\n" +
-                               "  pivx-tx [options] <hex-tx> [commands]  " + _("Update hex-encoded pivx transaction") + "\n" +
-                               "  pivx-tx [options] -create [commands]   " + _("Create hex-encoded pivx transaction") + "\n" +
+                               "  livenodes-tx [options] <hex-tx> [commands]  " + _("Update hex-encoded LivenodesCoin transaction") + "\n" +
+                               "  livenodes-tx [options] -create [commands]   " + _("Create hex-encoded LivenodesCoin transaction") + "\n" +
                                "\n";
 
         fprintf(stdout, "%s", strUsage.c_str());
@@ -191,8 +191,7 @@ static void MutateTxAddInput(CMutableTransaction& tx, const string& strInput)
     uint256 txid(strTxid);
 
     static const unsigned int minTxOutSz = 9;
-    unsigned int nMaxSize = MAX_BLOCK_SIZE_LEGACY;
-    static const unsigned int maxVout = nMaxSize / minTxOutSz;
+    static const unsigned int maxVout = MAX_BLOCK_SIZE / minTxOutSz;
 
     // extract and validate vout
     string strVout = strInput.substr(pos + 1, string::npos);
@@ -480,10 +479,8 @@ static void MutateTx(CMutableTransaction& tx, const string& command, const strin
     else if (command == "outscript")
         MutateTxAddOutScript(tx, commandVal);
 
-    else if (command == "sign"){
-        if (!ecc) { ecc.reset(new Secp256k1Init()); }
+    else if (command == "sign")
         MutateTxSign(tx, commandVal);
-    }
 
     else if (command == "load")
         RegisterLoad(commandVal);

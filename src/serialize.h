@@ -18,8 +18,6 @@
 #include <string>
 #include <utility>
 #include <vector>
-#include "libzerocoin/Denominations.h"
-#include "libzerocoin/SpendType.h"
 
 class CScript;
 
@@ -50,6 +48,33 @@ inline T* NCONST_PTR(const T* val)
 // Templates for serializing to anything that looks like a stream,
 // i.e. anything that supports .read(char*, size_t) and .write(char*, size_t)
 //
+
+template <class T, class TAl>
+inline T* begin_ptr(std::vector<T, TAl>& v)
+{
+    return v.empty() ? NULL : &v[0];
+}
+
+/** Get begin pointer of vector (const version) */
+template <class T, class TAl>
+inline const T* begin_ptr(const std::vector<T, TAl>& v)
+{
+    return v.empty() ? NULL : &v[0];
+}
+
+/** Get end pointer of vector (non-const version) */
+template <class T, class TAl>
+inline T* end_ptr(std::vector<T, TAl>& v)
+{
+    return v.empty() ? NULL : (&v[0] + v.size());
+}
+
+/** Get end pointer of vector (const version) */
+template <class T, class TAl>
+inline const T* end_ptr(const std::vector<T, TAl>& v)
+{
+    return v.empty() ? NULL : (&v[0] + v.size());
+}
 
 enum {
     // primary actions
@@ -256,40 +281,6 @@ inline void Unserialize(Stream& s, bool& a, int, int = 0)
     READDATA(s, f);
     a = f;
 }
-// Serializatin for libzerocoin::CoinDenomination
-inline unsigned int GetSerializeSize(libzerocoin::CoinDenomination a, int, int = 0) { return sizeof(libzerocoin::CoinDenomination); }
-template <typename Stream>
-inline void Serialize(Stream& s, libzerocoin::CoinDenomination a, int, int = 0)
-{
-    int f = libzerocoin::ZerocoinDenominationToInt(a);
-    WRITEDATA(s, f);
-}
-
-template <typename Stream>
-inline void Unserialize(Stream& s, libzerocoin::CoinDenomination& a, int, int = 0)
-{
-    int f=0;
-    READDATA(s, f);
-    a = libzerocoin::IntToZerocoinDenomination(f);
-}
-
-// Serialization for libzerocoin::SpendType
-inline unsigned int GetSerializedSize(libzerocoin::SpendType a, int, int = 0) { return sizeof(libzerocoin::SpendType); }
-template <typename Stream>
-inline void Serialize(Stream& s, libzerocoin::SpendType a, int, int = 0)
-{
-    uint8_t f = static_cast<uint8_t>(a);
-    WRITEDATA(s, f);
-}
-
-template <typename Stream>
-inline void Unserialize(Stream& s, libzerocoin::SpendType & a, int, int = 0)
-{
-    uint8_t f=0;
-    READDATA(s, f);
-    a = static_cast<libzerocoin::SpendType>(f);
-}
-
 
 /**
  * Compact Size

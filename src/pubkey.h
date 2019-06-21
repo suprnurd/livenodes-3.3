@@ -16,15 +16,15 @@
 
 const unsigned int BIP32_EXTKEY_SIZE = 74;
 
+typedef uint256 ChainCode;
+
 /** A reference to a CKey: the Hash160 of its serialized public key */
 class CKeyID : public uint160
 {
 public:
-    CKeyID() : uint160() {}
-    explicit CKeyID(const uint160& in) : uint160(in) {}
+    CKeyID() : uint160(0) {}
+    CKeyID(const uint160& in) : uint160(in) {}
 };
-
-typedef uint256 ChainCode;
 
 /** An encapsulated public key. */
 class CPubKey

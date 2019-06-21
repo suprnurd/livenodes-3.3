@@ -8,7 +8,6 @@
 #define BITCOIN_PRIMITIVES_TRANSACTION_H
 
 #include "amount.h"
-#include "libzerocoin/CoinSpend.h"
 #include "script/script.h"
 #include "serialize.h"
 #include "uint256.h"
@@ -79,7 +78,6 @@ public:
 
     explicit CTxIn(COutPoint prevoutIn, CScript scriptSigIn=CScript(), uint32_t nSequenceIn=std::numeric_limits<unsigned int>::max());
     CTxIn(uint256 hashPrevTx, uint32_t nOut, CScript scriptSigIn=CScript(), uint32_t nSequenceIn=std::numeric_limits<uint32_t>::max());
-    CTxIn(const libzerocoin::CoinSpend& spend, libzerocoin::CoinDenomination denom);
 
     ADD_SERIALIZE_METHODS;
 
@@ -94,9 +92,6 @@ public:
     {
         return (nSequence == std::numeric_limits<uint32_t>::max());
     }
-
-    bool IsZerocoinSpend() const;
-    bool IsZerocoinPublicSpend() const;
 
     friend bool operator==(const CTxIn& a, const CTxIn& b)
     {
@@ -175,9 +170,6 @@ public:
         size_t nSize = GetSerializeSize(SER_DISK,0)+148u;
         return (nValue < 3*minRelayTxFee.GetFee(nSize));
     }
-
-    bool IsZerocoinMint() const;
-    CAmount GetZerocoinMinted() const;
 
     friend bool operator==(const CTxOut& a, const CTxOut& b)
     {
@@ -260,29 +252,19 @@ public:
     // Compute modified tx size for priority calculation (optionally given tx size)
     unsigned int CalculateModifiedSize(unsigned int nTxSize=0) const;
 
-    bool HasZerocoinSpendInputs() const;
-    bool HasZerocoinPublicSpendInputs() const;
-
-    bool HasZerocoinMintOutputs() const;
-
-    bool ContainsZerocoins() const
-    {
-        return HasZerocoinSpendInputs() || HasZerocoinPublicSpendInputs() || HasZerocoinMintOutputs();
-    }
-
-    CAmount GetZerocoinMinted() const;
-    CAmount GetZerocoinSpent() const;
-    int GetZerocoinMintCount() const;
-
     bool UsesUTXO(const COutPoint out);
     std::list<COutPoint> GetOutPoints() const;
 
     bool IsCoinBase() const
     {
-        return (vin.size() == 1 && vin[0].prevout.IsNull() && !ContainsZerocoins());
+        return (vin.size() == 1 && vin[0].prevout.IsNull());
     }
 
-    bool IsCoinStake() const;
+    bool IsCoinStake() const
+    {
+        // ppcoin: the coin stake transaction is marked with the first output empty
+        return (vin.size() > 0 && (!vin[0].prevout.IsNull()) && vout.size() >= 2 && vout[0].IsEmpty());
+    }
 
     friend bool operator==(const CTransaction& a, const CTransaction& b)
     {
@@ -295,6 +277,7 @@ public:
     }
 
     std::string ToString() const;
+    bool GetCoinAge(uint64_t& nCoinAge) const;  // ppcoin: get transaction coin age
 };
 
 /** A mutable version of CTransaction. */

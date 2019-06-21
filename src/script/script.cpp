@@ -151,11 +151,6 @@ const char* GetOpName(opcodetype opcode)
     case OP_NOP9                   : return "OP_NOP9";
     case OP_NOP10                  : return "OP_NOP10";
 
-    // zerocoin
-    case OP_ZEROCOINMINT           : return "OP_ZEROCOINMINT";
-    case OP_ZEROCOINSPEND          : return "OP_ZEROCOINSPEND";
-    case OP_ZEROCOINPUBLICSPEND          : return "OP_ZEROCOINPUBLICSPEND";
-
     case OP_INVALIDOPCODE          : return "OP_INVALIDOPCODE";
 
     // Note:
@@ -249,26 +244,6 @@ bool CScript::IsPayToScriptHash() const
             this->at(22) == OP_EQUAL);
 }
 
-bool CScript::StartsWithOpcode(const opcodetype opcode) const
-{
-    return (!this->empty() && this->at(0) == opcode);
-}
-
-bool CScript::IsZerocoinMint() const
-{
-    return StartsWithOpcode(OP_ZEROCOINMINT);
-}
-
-bool CScript::IsZerocoinSpend() const
-{
-    return StartsWithOpcode(OP_ZEROCOINSPEND);
-}
-
-bool CScript::IsZerocoinPublicSpend() const
-{
-    return StartsWithOpcode(OP_ZEROCOINPUBLICSPEND);
-}
-
 bool CScript::IsPushOnly(const_iterator pc) const
 {
     while (pc < end())
@@ -306,16 +281,10 @@ std::string CScript::ToString() const
             str += "[error]";
             return str;
         }
-        if (0 <= opcode && opcode <= OP_PUSHDATA4) {
+        if (0 <= opcode && opcode <= OP_PUSHDATA4)
             str += ValueString(vch);
-        } else {
+        else
             str += GetOpName(opcode);
-            if (opcode == OP_ZEROCOINSPEND) {
-                //Zerocoinspend has no further op codes.
-                break;
-            }
-        }
-
     }
     return str;
 }

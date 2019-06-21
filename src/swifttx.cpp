@@ -39,7 +39,7 @@ int nCompleteTXLocks;
 void ProcessMessageSwiftTX(CNode* pfrom, std::string& strCommand, CDataStream& vRecv)
 {
     if (fLiteMode) return; //disable all obfuscation/masternode related functionality
-    if (!IsSporkActive(SPORK_2_SWIFTTX)) return;
+    if (!IsSporkActive(SPORK_1_SWIFTTX)) return;
     if (!masternodeSync.IsBlockchainSynced()) return;
 
     if (strCommand == "ix") {
@@ -90,9 +90,9 @@ void ProcessMessageSwiftTX(CNode* pfrom, std::string& strCommand, CDataStream& v
                 pfrom->addr.ToString().c_str(), pfrom->cleanSubVer.c_str(),
                 tx.GetHash().ToString().c_str());
 
-            if (GetTransactionLockSignatures(tx.GetHash()) == SWIFTTX_SIGNATURES_REQUIRED) {
-                GetMainSignals().NotifyTransactionLock(tx);
-            }
+            //if (GetTransactionLockSignatures(tx.GetHash()) == SWIFTTX_SIGNATURES_REQUIRED) {
+            //    GetMainSignals().NotifyTransactionLock(tx);
+            //}
 
             return;
 
@@ -167,9 +167,9 @@ void ProcessMessageSwiftTX(CNode* pfrom, std::string& strCommand, CDataStream& v
             RelayInv(inv);
         }
 
-        if (mapTxLockReq.count(ctx.txHash) && GetTransactionLockSignatures(ctx.txHash) == SWIFTTX_SIGNATURES_REQUIRED) {
-            GetMainSignals().NotifyTransactionLock(mapTxLockReq[ctx.txHash]);
-        }
+        //if (mapTxLockReq.count(ctx.txHash) && GetTransactionLockSignatures(ctx.txHash) == SWIFTTX_SIGNATURES_REQUIRED) {
+        //    GetMainSignals().NotifyTransactionLock(mapTxLockReq[ctx.txHash]);
+        //}
 
         return;
     }
@@ -199,7 +199,7 @@ bool IsIXTXValid(const CTransaction& txCollateral)
         }
     }
 
-    if (nValueOut > GetSporkValue(SPORK_5_MAX_VALUE) * COIN) {
+    if (nValueOut > GetSporkValue(SPORK_3_MAX_VALUE) * COIN) {
         LogPrint("swiftx", "IsIXTXValid - Transaction value too high - %s\n", txCollateral.ToString().c_str());
         return false;
     }
@@ -460,16 +460,6 @@ void CleanTransactionLocksList()
     }
 }
 
-int GetTransactionLockSignatures(uint256 txHash)
-{
-    if(fLargeWorkForkFound || fLargeWorkInvalidChainFound) return -2;
-    if (!IsSporkActive(SPORK_2_SWIFTTX)) return -1;
-
-    std::map<uint256, CTransactionLock>::iterator it = mapTxLocks.find(txHash);
-    if(it != mapTxLocks.end()) return it->second.CountSignatures();
-
-    return -1;
-}
 
 uint256 CConsensusVote::GetHash() const
 {

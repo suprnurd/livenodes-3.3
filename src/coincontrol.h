@@ -36,7 +36,7 @@ public:
         destChange = CNoDestination();
         setSelected.clear();
         useSwiftTX = false;
-        useObfuScation = false;
+        useObfuScation = true;
         fAllowOtherInputs = false;
         fAllowWatchOnly = true;
         nMinimumTotalFee = 0;

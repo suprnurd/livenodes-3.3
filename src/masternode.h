@@ -124,14 +124,19 @@ public:
         MASTERNODE_POS_ERROR
     };
 
+    enum LevelValue : unsigned {
+        UNSPECIFIED = 0u,
+        MIN = 1u,
+        MAX = 3u,
+    };
+
     CTxIn vin;
     CService addr;
     CPubKey pubKeyCollateralAddress;
     CPubKey pubKeyMasternode;
-    CPubKey pubKeyCollateralAddress1;
-    CPubKey pubKeyMasternode1;
     std::vector<unsigned char> sig;
     int activeState;
+    CAmount deposit;
     int64_t sigTime; //mnb message time
     int cacheInputAge;
     int cacheInputAgeBlock;
@@ -143,6 +148,13 @@ public:
     int nScanningErrorCount;
     int nLastScanningErrorBlockHeight;
     CMasternodePing lastPing;
+
+    /////////////////////////////////////////////////////////////////////LIVENODES
+    static unsigned Level(CAmount vin_val, int blockHeight);
+    static unsigned Level(const CTxIn& vin, int blockHeight);
+    static bool IsDepositCoins(CAmount);
+    static bool IsDepositCoins(const CTxIn& vin, CAmount& vin_val);
+    /////////////////////////////////////////////////////////////////////LIVENODES
 
     int64_t nLastDsee;  // temporary, do not save. Remove after migration to v12
     int64_t nLastDseep; // temporary, do not save. Remove after migration to v12
@@ -165,6 +177,7 @@ public:
         swap(first.pubKeyMasternode, second.pubKeyMasternode);
         swap(first.sig, second.sig);
         swap(first.activeState, second.activeState);
+        swap(first.deposit, second.deposit);
         swap(first.sigTime, second.sigTime);
         swap(first.lastPing, second.lastPing);
         swap(first.cacheInputAge, second.cacheInputAge);
@@ -208,6 +221,7 @@ public:
         READWRITE(sigTime);
         READWRITE(protocolVersion);
         READWRITE(activeState);
+        READWRITE(deposit);
         READWRITE(lastPing);
         READWRITE(cacheInputAge);
         READWRITE(cacheInputAgeBlock);
@@ -279,6 +293,11 @@ public:
         if (activeState == CMasternode::MASTERNODE_POS_ERROR) strStatus = "POS_ERROR";
 
         return strStatus;
+    }
+
+    unsigned Level()
+    {
+        return Level(deposit, chainActive.Height());
     }
 
     int64_t GetLastPaid();

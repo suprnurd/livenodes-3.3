@@ -13,9 +13,10 @@
 #include "primitives/block.h"
 #include "protocol.h"
 #include "uint256.h"
+#include "amount.h"
 
-#include "libzerocoin/Params.h"
 #include <vector>
+#include <map>
 
 typedef unsigned char MessageStartChars[MESSAGE_START_SIZE];
 
@@ -50,7 +51,7 @@ public:
     const std::vector<unsigned char>& AlertKey() const { return vAlertPubKey; }
     int GetDefaultPort() const { return nDefaultPort; }
     const uint256& ProofOfWorkLimit() const { return bnProofOfWorkLimit; }
-    int SubsidyHalvingInterval() const { return nSubsidyHalvingInterval; }
+    const uint256& StartWork() const { return bnStartWork; }
     /** Used to check majorities for block version upgrade */
     int EnforceBlockUpgradeMajority() const { return nEnforceBlockUpgradeMajority; }
     int RejectBlockOutdatedMajority() const { return nRejectBlockOutdatedMajority; }
@@ -63,18 +64,15 @@ public:
     /** Make miner wait to have peers to avoid wasting work */
     bool MiningRequiresPeers() const { return fMiningRequiresPeers; }
     /** Headers first syncing is disabled */
-    bool HeadersFirstSyncingActive() const { return fHeadersFirstSyncingActive; };
+    bool HeadersFirstSyncingActive() const { return fHeadersFirstSyncingActive; }
     /** Default value for -checkmempool and -checkblockindex argument */
     bool DefaultConsistencyChecks() const { return fDefaultConsistencyChecks; }
-    /** Allow mining of a min-difficulty block */
-    bool AllowMinDifficultyBlocks() const { return fAllowMinDifficultyBlocks; }
     /** Skip proof-of-work check: allow mining of any difficulty block */
     bool SkipProofOfWorkCheck() const { return fSkipProofOfWorkCheck; }
     /** Make standard checks */
     bool RequireStandard() const { return fRequireStandard; }
-    int64_t TargetTimespan() const { return nTargetTimespan; }
     int64_t TargetSpacing() const { return nTargetSpacing; }
-    int64_t Interval() const { return nTargetTimespan / nTargetSpacing; }
+    int64_t TargetSpacingSlowLaunch() const { return nTargetSpacingSlowLaunch; }
     int COINBASE_MATURITY() const { return nMaturity; }
     CAmount MaxMoneyOut() const { return nMaxMoneyOut; }
     /** The masternode count that we will allow the see-saw reward payments to be off by */
@@ -91,52 +89,18 @@ public:
     virtual const Checkpoints::CCheckpointData& Checkpoints() const = 0;
     int PoolMaxTransactions() const { return nPoolMaxTransactions; }
     /** Return the number of blocks in a budget cycle */
-    int GetBudgetCycleBlocks() const { return nBudgetCycleBlocks; }
-    int64_t GetProposalEstablishmentTime() const { return nProposalEstablishmentTime; }
 
     /** Spork key and Masternode Handling **/
     std::string SporkKey() const { return strSporkKey; }
-    std::string SporkKeyOld() const { return strSporkKeyOld; }
-    int64_t NewSporkStart() const { return nEnforceNewSporkKey; }
-    int64_t RejectOldSporkKey() const { return nRejectOldSporkKey; }
     std::string ObfuscationPoolDummyAddress() const { return strObfuscationPoolDummyAddress; }
     int64_t StartMasternodePayments() const { return nStartMasternodePayments; }
-    int64_t Budget_Fee_Confirmations() const { return nBudget_Fee_Confirmations; }
-
     CBaseChainParams::Network NetworkID() const { return networkID; }
-
-    /** Zerocoin **/
-    std::string Zerocoin_Modulus() const { return zerocoinModulus; }
-    libzerocoin::ZerocoinParams* Zerocoin_Params(bool useModulusV1) const;
-    int Zerocoin_MaxSpendsPerTransaction() const { return nMaxZerocoinSpendsPerTransaction; }
-    int Zerocoin_MaxPublicSpendsPerTransaction() const { return nMaxZerocoinPublicSpendsPerTransaction; }
-    CAmount Zerocoin_MintFee() const { return nMinZerocoinMintFee; }
-    int Zerocoin_MintRequiredConfirmations() const { return nMintRequiredConfirmations; }
-    int Zerocoin_RequiredAccumulation() const { return nRequiredAccumulation; }
-    int Zerocoin_DefaultSpendSecurity() const { return nDefaultSecurityLevel; }
-    int Zerocoin_HeaderVersion() const { return nZerocoinHeaderVersion; }
-    int Zerocoin_RequiredStakeDepth() const { return nZerocoinRequiredStakeDepth; }
 
     /** Height or Time Based Activations **/
     int ModifierUpgradeBlock() const { return nModifierUpdateBlock; }
     int LAST_POW_BLOCK() const { return nLastPOWBlock; }
-    int Zerocoin_StartHeight() const { return nZerocoinStartHeight; }
-    int Zerocoin_Block_EnforceSerialRange() const { return nBlockEnforceSerialRange; }
-    int Zerocoin_Block_RecalculateAccumulators() const { return nBlockRecalculateAccumulators; }
-    int Zerocoin_Block_FirstFraudulent() const { return nBlockFirstFraudulent; }
-    int Zerocoin_Block_LastGoodCheckpoint() const { return nBlockLastGoodCheckpoint; }
-    int Zerocoin_StartTime() const { return nZerocoinStartTime; }
-    int Block_Enforce_Invalid() const { return nBlockEnforceInvalidUTXO; }
-    int Zerocoin_Block_V2_Start() const { return nBlockZerocoinV2; }
+    int StartMNPaymentsBlock() const {return nStartMasternodePaymentsBlock; }
 
-    // fake serial attack
-    int Zerocoin_Block_EndFakeSerial() const { return nFakeSerialBlockheightEnd; }
-    CAmount GetSupplyBeforeFakeSerial() const { return nSupplyBeforeFakeSerial; }
-
-    int Zerocoin_Block_Double_Accumulated() const { return nBlockDoubleAccumulated; }
-    CAmount InvalidAmountFiltered() const { return nInvalidAmountFiltered; };
-
-    int Zerocoin_Block_Public_Spend_Enabled() const { return nPublicZCSpends; }
 
 protected:
     CChainParams() {}
@@ -147,14 +111,15 @@ protected:
     std::vector<unsigned char> vAlertPubKey;
     int nDefaultPort;
     uint256 bnProofOfWorkLimit;
+    uint256 bnStartWork;
     int nMaxReorganizationDepth;
-    int nSubsidyHalvingInterval;
     int nEnforceBlockUpgradeMajority;
     int nRejectBlockOutdatedMajority;
     int nToCheckBlockUpgradeMajority;
-    int64_t nTargetTimespan;
     int64_t nTargetSpacing;
+    int64_t nTargetSpacingSlowLaunch;
     int nLastPOWBlock;
+    int nStartMasternodePaymentsBlock;
     int nMasternodeCountDrift;
     int nMaturity;
     int nModifierUpdateBlock;
@@ -166,8 +131,8 @@ protected:
     std::string strNetworkID;
     CBlock genesis;
     std::vector<CAddress> vFixedSeeds;
+    bool fRequireRPCPassword;
     bool fMiningRequiresPeers;
-    bool fAllowMinDifficultyBlocks;
     bool fDefaultConsistencyChecks;
     bool fRequireStandard;
     bool fMineBlocksOnDemand;
@@ -175,40 +140,9 @@ protected:
     bool fTestnetToBeDeprecatedFieldRPC;
     bool fHeadersFirstSyncingActive;
     int nPoolMaxTransactions;
-    int nBudgetCycleBlocks;
     std::string strSporkKey;
-    std::string strSporkKeyOld;
-    int64_t nEnforceNewSporkKey;
-    int64_t nRejectOldSporkKey;
     std::string strObfuscationPoolDummyAddress;
     int64_t nStartMasternodePayments;
-    std::string zerocoinModulus;
-    int nMaxZerocoinSpendsPerTransaction;
-    int nMaxZerocoinPublicSpendsPerTransaction;
-    CAmount nMinZerocoinMintFee;
-    CAmount nInvalidAmountFiltered;
-    int nMintRequiredConfirmations;
-    int nRequiredAccumulation;
-    int nDefaultSecurityLevel;
-    int nZerocoinHeaderVersion;
-    int64_t nBudget_Fee_Confirmations;
-    int nZerocoinStartHeight;
-    int nZerocoinStartTime;
-    int nZerocoinRequiredStakeDepth;
-    int64_t nProposalEstablishmentTime;
-
-    int nBlockEnforceSerialRange;
-    int nBlockRecalculateAccumulators;
-    int nBlockFirstFraudulent;
-    int nBlockLastGoodCheckpoint;
-    int nBlockEnforceInvalidUTXO;
-    int nBlockZerocoinV2;
-    int nBlockDoubleAccumulated;
-    int nPublicZCSpends;
-
-    // fake serial attack
-    int nFakeSerialBlockheightEnd = 0;
-    CAmount nSupplyBeforeFakeSerial = 0;
 };
 
 /**
@@ -221,12 +155,10 @@ class CModifiableParams
 {
 public:
     //! Published setters to allow changing values in unit test cases
-    virtual void setSubsidyHalvingInterval(int anSubsidyHalvingInterval) = 0;
     virtual void setEnforceBlockUpgradeMajority(int anEnforceBlockUpgradeMajority) = 0;
     virtual void setRejectBlockOutdatedMajority(int anRejectBlockOutdatedMajority) = 0;
     virtual void setToCheckBlockUpgradeMajority(int anToCheckBlockUpgradeMajority) = 0;
     virtual void setDefaultConsistencyChecks(bool aDefaultConsistencyChecks) = 0;
-    virtual void setAllowMinDifficultyBlocks(bool aAllowMinDifficultyBlocks) = 0;
     virtual void setSkipProofOfWorkCheck(bool aSkipProofOfWorkCheck) = 0;
 };
 
