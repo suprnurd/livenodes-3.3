@@ -356,9 +356,9 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn, CWallet* pwallet, 
                 auto reward_out_idx = txReward.vout.size() - 1;
 
                 // Masternode payments
-                // auto mn_reward = masternodePayments.FillBlockPayee(txReward, block_value, fProofOfStake);
+                auto mn_reward = masternodePayments.FillBlockPayee(txReward, block_value, fProofOfStake);
 
-                // txReward.vout[reward_out_idx].nValue -= mn_reward;
+                txReward.vout[reward_out_idx].nValue -= mn_reward;
 
                 pblock->vtx[reward_tx_idx] = txReward;
             }

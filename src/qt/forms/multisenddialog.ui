@@ -9,15 +9,24 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>594</width>
-    <height>526</height>
+    <width>652</width>
+    <height>300</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>MultiSend</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout" stretch="0">
-   <property name="margin">
+   <property name="leftMargin">
+    <number>6</number>
+   </property>
+   <property name="topMargin">
+    <number>6</number>
+   </property>
+   <property name="rightMargin">
+    <number>6</number>
+   </property>
+   <property name="bottomMargin">
     <number>6</number>
    </property>
    <item>
@@ -28,8 +37,8 @@
         <number>1</number>
        </property>
        <property name="text">
-        <string>MultiSend allows you to automatically send up to 100% of your stake or masternode reward to a list of other PIVX addresses after it matures.
-To Add: enter percentage to give and PIVX address to add to the MultiSend vector.
+        <string>MultiSend allows you to automatically send up to 100% of your stake or masternode reward to a list of other LivenodesCoin addresses after it matures.
+To Add: enter percentage to give and LivenodesCoin address to add to the MultiSend vector.
 To Delete: Enter address to delete and press delete.
 MultiSend will not be activated unless you have clicked Activate</string>
        </property>
@@ -74,7 +83,7 @@ MultiSend will not be activated unless you have clicked Activate</string>
          <item>
           <widget class="QCheckBox" name="multiSendMasternodeCheckBox">
            <property name="text">
-            <string>Send For Masternode Rewards</string>
+            <string>Send From Masternode Rewards</string>
            </property>
           </widget>
          </item>
@@ -139,7 +148,7 @@ MultiSend will not be activated unless you have clicked Activate</string>
           </widget>
          </item>
          <item>
-          <widget class="QToolButton" name="addressBookButton">
+          <widget class="QPushButton" name="addressBookButton">
            <property name="maximumSize">
             <size>
              <width>16777215</width>
@@ -153,11 +162,14 @@ MultiSend will not be activated unless you have clicked Activate</string>
             <string/>
            </property>
            <property name="icon">
-            <iconset resource="../pivx.qrc">
+            <iconset resource="../livenodes.qrc">
              <normaloff>:/icons/address-book</normaloff>:/icons/address-book</iconset>
            </property>
            <property name="shortcut">
             <string>Alt+A</string>
+           </property>
+           <property name="autoDefault">
+            <bool>false</bool>
            </property>
           </widget>
          </item>
@@ -319,7 +331,7 @@ MultiSend will not be activated unless you have clicked Activate</string>
   </layout>
  </widget>
  <resources>
-  <include location="../pivx.qrc"/>
+  <include location="../livenodes.qrc"/>
  </resources>
  <connections/>
 </ui>

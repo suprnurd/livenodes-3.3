@@ -1,5 +1,7 @@
 // Copyright (c) 2011-2014 The Bitcoin developers
-// Copyright (c) 2017-2018 The PIVX developers
+// Copyright (c) 2014-2015 The Dash developers
+// Copyright (c) 2015-2017 The PIVX developers
+// Copyright (c) 2018-2019 The Livenodes developers
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -19,6 +21,7 @@
 #include <QPoint>
 #include <QPushButton>
 #include <QSystemTrayIcon>
+
 
 class ClientModel;
 class NetworkStyle;
@@ -84,9 +87,7 @@ private:
 
     UnitDisplayStatusBarControl* unitDisplayControl;
     QLabel* labelStakingIcon;
-    QPushButton* labelAutoMintIcon;
     QPushButton* labelEncryptionIcon;
-    QLabel* labelTorIcon;
     QPushButton* labelConnectionsIcon;
     QLabel* labelBlocksIcon;
     QLabel* progressBarLabel;
@@ -109,8 +110,6 @@ private:
     QAction* multisigSignAction;
     QAction* aboutAction;
     QAction* receiveCoinsAction;
-    QAction* governanceAction;
-    QAction* privacyAction;
     QAction* optionsAction;
     QAction* toggleHideAction;
     QAction* encryptWalletAction;
@@ -131,23 +130,25 @@ private:
     QAction* openBlockExplorerAction;
     QAction* showHelpMessageAction;
     QAction* multiSendAction;
+    QAction* toolsAction;
+
 
     QSystemTrayIcon* trayIcon;
     QMenu* trayIconMenu;
     Notificator* notificator;
     RPCConsole* rpcConsole;
-    BlockExplorer* explorerWindow;
 
     /** Keep track of previous number of blocks, to detect progress */
     int prevBlocks;
     int spinnerFrame;
+    QTimer* synctimer;
 
     /** Create the main UI actions. */
     void createActions(const NetworkStyle* networkStyle);
     /** Create the menu bar and sub-menus. */
     void createMenuBar();
     /** Create the toolbars */
-    void createToolBars();
+    void createToolBars(QWidget *);
     /** Create system tray icon and notification */
     void createTrayIcon(const NetworkStyle* networkStyle);
     /** Create system tray menu (or setup the dock menu) */
@@ -174,6 +175,8 @@ public slots:
     void setNumBlocks(int count);
     /** Get restart command-line parameters and request restart */
     void handleRestart(QStringList args);
+    //update sync anim
+    void updateSyncAnimation();
 
     /** Notify the user of an event from the core network or transaction handling code.
        @param[in] title     the message box / notification title
@@ -184,10 +187,9 @@ public slots:
     */
     void message(const QString& title, const QString& message, unsigned int style, bool* ret = NULL);
 
-#ifdef ENABLE_WALLET
     void setStakingStatus();
-    void setAutoMintStatus();
 
+#ifdef ENABLE_WALLET
     /** Set the encryption status as shown in the UI.
        @param[in] status            current encryption status
        @see WalletModel::EncryptionStatus
@@ -200,10 +202,6 @@ public slots:
     void incomingTransaction(const QString& date, int unit, const CAmount& amount, const QString& type, const QString& address);
 #endif // ENABLE_WALLET
 
-private:
-    /** Set the Tor-enabled icon as shown in the UI. */
-    void updateTorIcon();
-
 private slots:
 #ifdef ENABLE_WALLET
     /** Switch to overview (home) page */
@@ -214,10 +212,10 @@ private slots:
     void gotoBlockExplorerPage();
     /** Switch to masternode page */
     void gotoMasternodePage();
-    /** Switch to privacy page */
-    void gotoReceiveCoinsPage();
+    /** Switch to tools page */
+    void gotoToolsPage();
     /** Switch to receive coins page */
-    void gotoPrivacyPage();
+    void gotoReceiveCoinsPage();
     /** Switch to send coins page */
     void gotoSendCoinsPage(QString addr = "");
 
@@ -248,6 +246,12 @@ private slots:
     /** Handle tray icon clicked */
     void trayIconActivated(QSystemTrayIcon::ActivationReason reason);
 #endif
+
+    void showInfo();
+    void showConsole();
+    void showGraph();
+    void showPeers();
+    void showRepair();
 
     /** Show window if hidden, unminimize when minimized, rise when obscured or show if hidden and fToggleHidden is true */
     void showNormalIfMinimized(bool fToggleHidden = false);

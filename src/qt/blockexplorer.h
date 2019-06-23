@@ -1,7 +1,3 @@
-// Copyright (c) 2017-2018 The PIVX developers
-// Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
-
 #ifndef BLOCKEXPLORER_H
 #define BLOCKEXPLORER_H
 
@@ -26,7 +22,7 @@ const CBlockIndex* getexplorerBlockIndex(int64_t);
 CTxOut getPrevOut(const COutPoint& out);
 void getNextIn(const COutPoint* Out, uint256* Hash, unsigned int n);
 
-class BlockExplorer : public QMainWindow
+class BlockExplorer : public QWidget
 {
     Q_OBJECT
 

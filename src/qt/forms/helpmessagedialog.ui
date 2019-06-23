@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>585</width>
-    <height>488</height>
+    <height>225</height>
    </rect>
   </property>
   <property name="font">
@@ -16,19 +16,19 @@
    </font>
   </property>
   <property name="windowTitle">
-   <string notr="true">PIVX Core - Command-line options</string>
+   <string notr="true">LivenodesCoin Core - Command-line options</string>
   </property>
   <layout class="QHBoxLayout" name="horizontalLayout_2">
    <item>
     <widget class="QLabel" name="graphic">
      <property name="sizePolicy">
-      <sizepolicy hsizetype="Preferred" vsizetype="Ignored">
+      <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
        <horstretch>0</horstretch>
        <verstretch>0</verstretch>
       </sizepolicy>
      </property>
      <property name="pixmap">
-      <pixmap resource="../pivx.qrc">:/images/about</pixmap>
+      <pixmap resource="../livenodes.qrc">:/images/about</pixmap>
      </property>
     </widget>
    </item>
@@ -54,8 +54,8 @@
          <rect>
           <x>0</x>
           <y>0</y>
-          <width>479</width>
-          <height>213</height>
+          <width>480</width>
+          <height>76</height>
          </rect>
         </property>
         <layout class="QVBoxLayout" name="verticalLayout_2">
@@ -97,7 +97,7 @@
   </layout>
  </widget>
  <resources>
-  <include location="../pivx.qrc"/>
+  <include location="../livenodes.qrc"/>
  </resources>
  <connections>
   <connection>

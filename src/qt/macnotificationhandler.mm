@@ -14,7 +14,7 @@
 - (NSString *)__bundleIdentifier
 {
     if (self == [NSBundle mainBundle]) {
-        return @"io.pivx.Pivx-Qt";
+        return @"io.livenodes.LivenodesCoinCore-Qt";
     } else {
         return [self __bundleIdentifier];
     }
@@ -48,6 +48,20 @@ void MacNotificationHandler::showNotification(const QString &title, const QStrin
     }
 }
 
+// sendAppleScript just take a QString and executes it as apple script
+void MacNotificationHandler::sendAppleScript(const QString &script)
+{
+    QByteArray utf8 = script.toUtf8();
+    char* cString = (char *)utf8.constData();
+    NSString *scriptApple = [[NSString alloc] initWithUTF8String:cString];
+
+    NSAppleScript *as = [[NSAppleScript alloc] initWithSource:scriptApple];
+    NSDictionary *err = nil;
+    [as executeAndReturnError:&err];
+    [as release];
+    [scriptApple release];
+}
+
 bool MacNotificationHandler::hasUserNotificationCenterSupport(void)
 {
     Class possibleClass = NSClassFromString(@"NSUserNotificationCenter");
@@ -65,7 +79,7 @@ MacNotificationHandler *MacNotificationHandler::instance()
     static MacNotificationHandler *s_instance = NULL;
     if (!s_instance) {
         s_instance = new MacNotificationHandler();
-        
+
         Class aPossibleClass = objc_getClass("NSBundle");
         if (aPossibleClass) {
             // change NSBundle -bundleIdentifier method to return a correct bundle identifier

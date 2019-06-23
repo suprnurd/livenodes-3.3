@@ -1,5 +1,4 @@
 // Copyright (c) 2011-2014 The Bitcoin developers
-// Copyright (c) 2017-2018 The PIVX developers
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -7,7 +6,6 @@
 
 #include "bitcoinunits.h"
 #include "guiconstants.h"
-#include "guiutil.h"
 #include "qvaluecombobox.h"
 
 #include <QAbstractSpinBox>
@@ -25,7 +23,7 @@ class AmountSpinBox : public QAbstractSpinBox
 
 public:
     explicit AmountSpinBox(QWidget* parent) : QAbstractSpinBox(parent),
-                                              currentUnit(BitcoinUnits::PIV),
+                                              currentUnit(BitcoinUnits::LNO),
                                               singleStep(100000) // satoshis
     {
         setAlignment(Qt::AlignRight);
@@ -98,7 +96,7 @@ public:
 
             const QFontMetrics fm(fontMetrics());
             int h = lineEdit()->minimumSizeHint().height();
-            int w = fm.width(BitcoinUnits::format(BitcoinUnits::PIV, BitcoinUnits::maxMoney(), false, BitcoinUnits::separatorAlways));
+            int w = fm.width(BitcoinUnits::format(BitcoinUnits::LNO, BitcoinUnits::maxMoney(), false, BitcoinUnits::separatorAlways));
             w += 2; // cursor blinking space
 
             QStyleOptionSpinBox opt;
@@ -184,16 +182,7 @@ signals:
 BitcoinAmountField::BitcoinAmountField(QWidget* parent) : QWidget(parent),
                                                           amount(0)
 {
-    this->setObjectName("BitcoinAmountField"); // ID as CSS-reference
-    // For whatever reasons the Gods of Qt-CSS-manipulation won't let us change this class' stylesheet in the CSS file.
-    // Workaround for the people after me:
-    // - name all UI objects, preferably with a unique name
-    // - address those names globally in the CSS file
-
     amount = new AmountSpinBox(this);
-    // According to the Qt-CSS specs this should work, but doesn't
-    amount->setStyleSheet("QSpinBox::up-button:hover { background-color: #f2f2f2; }"
-                          "QSpinBox::down-button:hover { background-color: #f2f2f2; }");
     amount->setLocale(QLocale::c());
     amount->installEventFilter(this);
     amount->setMaximumWidth(170);
@@ -202,6 +191,7 @@ BitcoinAmountField::BitcoinAmountField(QWidget* parent) : QWidget(parent),
     layout->addWidget(amount);
     unit = new QValueComboBox(this);
     unit->setModel(new BitcoinUnits(this));
+    unit->setVisible(false);
     layout->addWidget(unit);
     layout->addStretch(1);
     layout->setContentsMargins(0, 0, 0, 0);
@@ -242,9 +232,7 @@ bool BitcoinAmountField::validate()
 void BitcoinAmountField::setValid(bool valid)
 {
     if (valid)
-        // According to the Qt-CSS specs this should work, but doesn't
-        amount->setStyleSheet("QSpinBox::up-button:hover { background-color: #f2f2f2 }"
-                              "QSpinBox::down-button:hover { background-color: #f2f2f2 }");
+        amount->setStyleSheet("");
     else
         amount->setStyleSheet(STYLE_INVALID);
 }

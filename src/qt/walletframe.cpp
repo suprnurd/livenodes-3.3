@@ -1,9 +1,12 @@
-// Copyright (c) 2011-2013 The Bitcoin developers
-// Copyright (c) 2016-2019 The PIVX developers
+// Copyright (c) 2011-2014 The Bitcoin developers
+// Copyright (c) 2014-2015 The Dash developers
+// Copyright (c) 2015-2017 The PIVX developers
+// Copyright (c) 2018-2019 The Livenodes developers
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include "walletframe.h"
+#include "toolspage.h"
 
 #include "bitcoingui.h"
 #include "walletview.h"
@@ -42,7 +45,7 @@ bool WalletFrame::addWallet(const QString& name, WalletModel* walletModel)
     if (!gui || !clientModel || !walletModel || mapWalletViews.count(name) > 0)
         return false;
 
-    WalletView* walletView = new WalletView(walletStack);
+    WalletView* walletView = new WalletView(this);
     walletView->setBitcoinGUI(gui);
     walletView->setClientModel(clientModel);
     walletView->setWalletModel(walletModel);
@@ -119,19 +122,28 @@ void WalletFrame::gotoHistoryPage()
         i.value()->gotoHistoryPage();
 }
 
-void WalletFrame::gotoGovernancePage()
-{
-    QMap<QString, WalletView*>::const_iterator i;
-    for (i = mapWalletViews.constBegin(); i != mapWalletViews.constEnd(); ++i)
-        i.value()->gotoGovernancePage();
-}
-
 void WalletFrame::gotoMasternodePage() // Masternode list
 {
     QMap<QString, WalletView*>::const_iterator i;
     for (i = mapWalletViews.constBegin(); i != mapWalletViews.constEnd(); ++i)
         i.value()->gotoMasternodePage();
 }
+
+void WalletFrame::gotoToolsPage()
+{
+   QMap<QString, WalletView*>::const_iterator i;
+    for (i = mapWalletViews.constBegin(); i != mapWalletViews.constEnd(); ++i)
+        i.value()->gotoToolsPage();
+}
+
+
+void WalletFrame::gotoToolsPageTab(enum ToolsPage::TabTypes page)
+{
+   QMap<QString, WalletView*>::const_iterator i;
+    for (i = mapWalletViews.constBegin(); i != mapWalletViews.constEnd(); ++i)
+        i.value()->gotoToolsPageTab(page);
+}
+
 
 void WalletFrame::gotoBlockExplorerPage()
 {
@@ -145,13 +157,6 @@ void WalletFrame::gotoReceiveCoinsPage()
     QMap<QString, WalletView*>::const_iterator i;
     for (i = mapWalletViews.constBegin(); i != mapWalletViews.constEnd(); ++i)
         i.value()->gotoReceiveCoinsPage();
-}
-
-void WalletFrame::gotoPrivacyPage()
-{
-    QMap<QString, WalletView*>::const_iterator i;
-    for (i = mapWalletViews.constBegin(); i != mapWalletViews.constEnd(); ++i)
-        i.value()->gotoPrivacyPage();
 }
 
 void WalletFrame::gotoSendCoinsPage(QString addr)
@@ -219,21 +224,11 @@ void WalletFrame::changePassphrase()
         walletView->changePassphrase();
 }
 
-void WalletFrame::unlockWallet(bool setContext)
-{
-    if (setContext) {
-        unlockWallet(AskPassphraseDialog::Context::Unlock_Full);
-    }
-    else {
-        unlockWallet(AskPassphraseDialog::Context::Unlock_Menu);
-    }
-}
-
-void WalletFrame::unlockWallet(AskPassphraseDialog::Context context)
+void WalletFrame::unlockWallet()
 {
     WalletView* walletView = currentWalletView();
     if (walletView)
-        walletView->unlockWallet(context);
+        walletView->unlockWallet();
 }
 
 void WalletFrame::lockWallet()
@@ -241,13 +236,6 @@ void WalletFrame::lockWallet()
     WalletView* walletView = currentWalletView();
     if (walletView)
         walletView->lockWallet();
-}
-
-void WalletFrame::toggleLockWallet()
-{
-    WalletView* walletView = currentWalletView();
-    if (walletView)
-        walletView->toggleLockWallet();
 }
 
 void WalletFrame::usedSendingAddresses()
