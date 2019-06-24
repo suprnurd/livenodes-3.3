@@ -31,6 +31,11 @@ unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast)
     uint256 PastDifficultyAverage;
     uint256 PastDifficultyAveragePrev;
 
+    // simply to disrupt the chain and force clients over
+    if (pindexLast->nHeight + 1 > nVersionFork &&
+        pindexLast->nHeight + 1 < nVersionFork + 10)
+	return Params().StartWork().GetCompact();
+
     if (BlockLastSolved == NULL || BlockLastSolved->nHeight == 0 || BlockLastSolved->nHeight < PastBlocksMin) {
         return Params().StartWork().GetCompact();
     }
