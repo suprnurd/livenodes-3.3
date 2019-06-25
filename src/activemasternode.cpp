@@ -286,15 +286,13 @@ bool CActiveMasternode::GetMasterNodeVin(CTxIn& vin, CPubKey& pubkey, CKey& secr
 
 bool CActiveMasternode::GetMasterNodeVin(CTxIn& vin, CPubKey& pubkey, CKey& secretKey, std::string strTxHash, std::string strOutputIndex)
 {
-	// wait for reindex and/or import to finish
-	if (fImporting || fReindex) return false;
-
     // Find possible candidates
     TRY_LOCK(pwalletMain->cs_wallet, fWallet);
     if (!fWallet) return false;
 
     vector<COutput> possibleCoins = SelectCoinsMasternode();
-    COutput* selectedOutput;
+
+    COutput* selectedOutput = nullptr;
 
     // Find the vin
     if (!strTxHash.empty()) {
@@ -308,34 +306,29 @@ bool CActiveMasternode::GetMasterNodeVin(CTxIn& vin, CPubKey& pubkey, CKey& secr
             return false;
         }
 
-        bool found = false;
         for (COutput& out : possibleCoins) {
-            if (out.tx->GetHash() == txHash && out.i == outputIndex) {
-              /////////////////////////////////////////////////////////////////////////////LIVENODES
-              if(out.tx->GetHash() != txHash || out.i != outputIndex)
-                  continue;
 
-              if(!CMasternode::Level(out.tx->vout[out.i].nValue, chainActive.Height()))
-                  continue;
-              /////////////////////////////////////////////////////////////////////////////LIVENODES
-              selectedOutput = &out;
-              found = true;
-              break;
-            }
+            if(out.tx->GetHash() != txHash || out.i != outputIndex)
+                continue;
+
+            if(!CMasternode::Level(out.tx->vout[out.i].nValue, chainActive.Height()))
+                continue;
+
+            selectedOutput = &out;
+            break;
         }
-        if (!found) {
+
+        if (!selectedOutput) {
             LogPrintf("CActiveMasternode::GetMasterNodeVin - Could not locate valid vin\n");
             return false;
         }
     } else {
-        // No output specified,  Select the first one
-        if (possibleCoins.size() > 0) {
-            selectedOutput = &possibleCoins[0];
-        } else {
+        // No output specified, Select the first one with higheset level
+        if (!possibleCoins.size()) {
             LogPrintf("CActiveMasternode::GetMasterNodeVin - Could not locate specified vin from possible list\n");
             return false;
         }
-        /////////////////////////////////////////////////////////////////////////////LIVENODES
+
         selectedOutput = &possibleCoins[0];
 
         auto selected_level = CMasternode::Level(selectedOutput->tx->vout[selectedOutput->i].nValue, chainActive.Height());
@@ -348,20 +341,15 @@ bool CActiveMasternode::GetMasterNodeVin(CTxIn& vin, CPubKey& pubkey, CKey& secr
             if(CMasternode::Level(out.tx->vout[out.i].nValue, chainActive.Height()) > selected_level)
                 selectedOutput = &out;
         }
-        /////////////////////////////////////////////////////////////////////////////LIVENODES
     }
 
     // At this point we have a selected output, retrieve the associated info
     return GetVinFromOutput(*selectedOutput, vin, pubkey, secretKey);
 }
 
-
 // Extract Masternode vin information from output
 bool CActiveMasternode::GetVinFromOutput(COutput out, CTxIn& vin, CPubKey& pubkey, CKey& secretKey)
 {
-	// wait for reindex and/or import to finish
-	if (fImporting || fReindex) return false;
-
     CScript pubScript;
 
     vin = CTxIn(out.tx->GetHash(), out.i);
@@ -400,7 +388,7 @@ vector<COutput> CActiveMasternode::SelectCoinsMasternode()
             mnTxHash.SetHex(mne.getTxHash());
 
             int nIndex;
-            if(!mne.castOutputIndex(nIndex))
+            if (!mne.castOutputIndex(nIndex))
                 continue;
 
             COutPoint outpoint = COutPoint(mnTxHash, nIndex);
@@ -420,15 +408,12 @@ vector<COutput> CActiveMasternode::SelectCoinsMasternode()
 
     // Filter
     for (const COutput& out : vCoins) {
-        /////////////////////////////////////////////////////////////////////////////LIVENODES
         if(CMasternode::IsDepositCoins(out.tx->vout[out.i].nValue))
             filteredCoins.push_back(out);
-        /////////////////////////////////////////////////////////////////////////////LIVENODES
     }
 
     return filteredCoins;
 }
-
 
 // when starting a Masternode, this can enable to run as a hot wallet with no funds
 bool CActiveMasternode::EnableHotColdMasterNode(CTxIn& newVin, CService& newService)
