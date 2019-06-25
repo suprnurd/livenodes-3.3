@@ -51,7 +51,7 @@ bool CMasternodeSync::IsBlockchainSynced()
     if (pindex == NULL) return false;
 
 
-    if (pindex->nTime + 60 * 60 < GetTime())
+    if (pindex->nTime + 12 * 60 * 60 < GetTime())
         return false;
 
     fBlockchainSynced = true;
@@ -78,28 +78,36 @@ void CMasternodeSync::Reset()
 
 void CMasternodeSync::AddedMasternodeList(uint256 hash)
 {
-    if (mnodeman.mapSeenMasternodeBroadcast.count(hash)) {
-        if (mapSeenSyncMNB[hash] < MASTERNODE_SYNC_THRESHOLD) {
-            lastMasternodeList = GetTime();
-            mapSeenSyncMNB[hash]++;
-        }
-    } else {
-        lastMasternodeList = GetTime();
-        mapSeenSyncMNB.insert(make_pair(hash, 1));
+    auto ins_res = mapSeenSyncMNB.emplace(hash, 1);
+
+    if(!ins_res.second) {
+
+        auto& seen_sync_mnb = ins_res.first->second;
+
+        if(seen_sync_mnb >= MASTERNODE_SYNC_THRESHOLD)
+            return;
+
+        ++seen_sync_mnb;
     }
+
+    lastMasternodeList = GetTime();
 }
 
 void CMasternodeSync::AddedMasternodeWinner(uint256 hash)
 {
-    if (masternodePayments.mapMasternodePayeeVotes.count(hash)) {
-        if (mapSeenSyncMNW[hash] < MASTERNODE_SYNC_THRESHOLD) {
-            lastMasternodeWinner = GetTime();
-            mapSeenSyncMNW[hash]++;
-        }
-    } else {
-        lastMasternodeWinner = GetTime();
-        mapSeenSyncMNW.insert(make_pair(hash, 1));
+    auto ins_res = mapSeenSyncMNW.emplace(hash, 1);
+
+    if(!ins_res.second) {
+
+        auto& seen_sync_mnw = ins_res.first->second;
+
+        if(seen_sync_mnw >= MASTERNODE_SYNC_THRESHOLD)
+            return;
+
+        ++seen_sync_mnw;
     }
+
+    lastMasternodeWinner = GetTime();
 }
 
 void CMasternodeSync::GetNextAsset()
@@ -289,7 +297,8 @@ void CMasternodeSync::Process()
                 if (RequestedMasternodeAttempt >= MASTERNODE_SYNC_THRESHOLD * 3)
                     return;
 
-                mnodeman.DsegUpdate(pnode);
+                if(!mnodeman.DsegUpdate(pnode))
+                    continue;
 
                 ++RequestedMasternodeAttempt;
 

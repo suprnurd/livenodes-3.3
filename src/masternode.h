@@ -134,6 +134,8 @@ public:
     CService addr;
     CPubKey pubKeyCollateralAddress;
     CPubKey pubKeyMasternode;
+    CPubKey pubKeyCollateralAddress1;
+    CPubKey pubKeyMasternode1;
     std::vector<unsigned char> sig;
     int activeState;
     CAmount deposit;
