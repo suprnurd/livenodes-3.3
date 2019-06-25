@@ -1124,6 +1124,12 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState& state, const CTransa
         return state.DoS(100, error("AcceptToMemoryPool: coinstake as individual tx"),
             REJECT_INVALID, "coinstake");
 
+    // Only accept nLockTime-using transactions that can be mined in the next
+    // block; we don't want our mempool filled up with transactions that can't
+    // be mined yet.
+    if (!CheckFinalTx(tx, STANDARD_LOCKTIME_VERIFY_FLAGS))
+        return state.DoS(0, false, REJECT_NONSTANDARD, "non-final");
+
     // Rather not work on nonstandard transactions (unless -testnet/-regtest)
     string reason;
     if (Params().RequireStandard() && !IsStandardTx(tx, reason))
@@ -2842,6 +2848,15 @@ bool ActivateBestChain(CValidationState& state, CBlock* pblock, bool fAlreadyChe
             // Notify external listeners about the new tip.
             // Note: uiInterface, should switch main signals.
             uiInterface.NotifyBlockTip(hashNewTip);
+            GetMainSignals().UpdatedBlockTip(pindexNewTip);
+
+            unsigned size = 0;
+            if (pblock)
+                size = GetSerializeSize(*pblock, SER_NETWORK, PROTOCOL_VERSION);
+            // If the size is over 1 MB notify external listeners, and it is within the last 5 minutes
+            if (size > MAX_BLOCK_SIZE && pblock->GetBlockTime() > GetAdjustedTime() - 300) {
+                uiInterface.NotifyBlockSize(static_cast<int>(size), hashNewTip);
+            }
         }
     } while (pindexMostWork != chainActive.Tip());
     // CheckBlockIndex();
@@ -4548,13 +4563,10 @@ void static ProcessGetData(CNode* pfrom)
                     }
                 }
                 if (!pushed && inv.type == MSG_MASTERNODE_WINNER) {
-    
-                    auto mnw = masternodePayments.mapMasternodePayeeVotes.find(inv.hash);
-    
-                    if(mnw != masternodePayments.mapMasternodePayeeVotes.cend()) {
-                        CDataStream ss{SER_NETWORK, PROTOCOL_VERSION};
+                    if (masternodePayments.mapMasternodePayeeVotes.count(inv.hash)) {
+                        CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
                         ss.reserve(1000);
-                        ss << mnw->second;
+                        ss << masternodePayments.mapMasternodePayeeVotes[inv.hash];
                         pfrom->PushMessage("mnw", ss);
                         pushed = true;
                     }

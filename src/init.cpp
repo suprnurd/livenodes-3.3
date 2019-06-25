@@ -206,6 +206,11 @@ void PrepareShutdown()
     DumpMasternodes();
     UnregisterNodeSignals(GetNodeSignals());
 
+    // After everything has been shut down, but before things get flushed, stop the
+    // CScheduler/checkqueue threadGroup
+    threadGroup.interrupt_all();
+    threadGroup.join_all();
+
     if (fFeeEstimatesInitialized) {
         boost::filesystem::path est_path = GetDataDir() / FEE_ESTIMATES_FILENAME;
         CAutoFile est_fileout(fopen(est_path.string().c_str(), "wb"), SER_DISK, CLIENT_VERSION);
@@ -1576,7 +1581,7 @@ bool AppInit2()
 
             // Restore wallet transaction metadata after -zapwallettxes=1
             if (GetBoolArg("-zapwallettxes", false) && GetArg("-zapwallettxes", "1") != "2") {
-                BOOST_FOREACH (const CWalletTx& wtxOld, vWtx) {
+                for (const CWalletTx& wtxOld : vWtx) {
                     uint256 hash = wtxOld.GetHash();
                     std::map<uint256, CWalletTx>::iterator mi = pwalletMain->mapWallet.find(hash);
                     if (mi != pwalletMain->mapWallet.end()) {
@@ -1698,6 +1703,10 @@ bool AppInit2()
 
     LogPrintf("fLiteMode %d\n", fLiteMode);
     LogPrintf("nSwiftTXDepth %d\n", nSwiftTXDepth);
+
+    obfuScationPool.InitCollateralAddress();
+
+    threadGroup.create_thread(boost::bind(&ThreadCheckObfuScationPool));
 
     // ********************************************************* Step 11: start node
 
