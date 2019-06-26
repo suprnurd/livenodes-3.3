@@ -16,6 +16,7 @@
 #include <boost/filesystem.hpp>
 #include <boost/filesystem/fstream.hpp>
 #include <boost/foreach.hpp>
+#include <boost/lexical_cast.hpp>
 
 #include <algorithm>
 #include <boost/assign/list_of.hpp>
@@ -198,7 +199,7 @@ void CObfuscationPool::CheckFinalTransaction()
         // sign a message
 
         int64_t sigTime = GetAdjustedTime();
-        std::string strMessage = txNew.GetHash().ToString() + std::to_string(sigTime);
+        std::string strMessage = txNew.GetHash().ToString() + boost::lexical_cast<std::string>(sigTime);
         std::string strError = "";
         std::vector<unsigned char> vchSig;
         CKey key2;
@@ -398,7 +399,7 @@ void CObfuscationPool::ChargeRandomFees()
 //
 void CObfuscationPool::CheckTimeout()
 {
-    if (!fEnableZeromint && !fMasterNode) return;
+    if (!fMasterNode) return;
 
     // catching hanging sessions
     if (!fMasterNode) {
@@ -483,7 +484,7 @@ void CObfuscationPool::CheckTimeout()
 //
 void CObfuscationPool::CheckForCompleteQueue()
 {
-    if (!fEnableZeromint && !fMasterNode) return;
+    if (!fMasterNode) return;
 
     /* Check to see if we're ready for submissions from clients */
     //
@@ -533,12 +534,16 @@ bool CObfuScationSigner::IsVinAssociatedWithPubkey(CTxIn& vin, CPubKey& pubkey)
 
     CTransaction txVin;
     uint256 hash;
-    if (GetTransaction(vin.prevout.hash, txVin, hash, true)) {
-        for (CTxOut out : txVin.vout) {
-            if (out.nValue == 10000 * COIN) {
-                if (out.scriptPubKey == payee2) return true;
-            }
-        }
+    if(!GetTransaction(vin.prevout.hash, txVin, hash, true))
+        return false;
+
+    for(CTxOut out : txVin.vout) {
+
+        if(!CMasternode::IsDepositCoins(out.nValue))
+            continue;
+
+        if(out.scriptPubKey == payee2)
+            return true;
     }
 
     return false;
