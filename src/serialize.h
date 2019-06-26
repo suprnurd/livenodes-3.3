@@ -445,8 +445,8 @@ public:
     template <class T, class TAl>
     explicit CFlatData(std::vector<T, TAl>& v)
     {
-        pbegin = (char*)v.data();
-        pend = (char*)(v.data() + v.size());
+        pbegin = (char*)begin_ptr(v);
+        pend = (char*)end_ptr(v);
     }
     char* begin() { return pbegin; }
     const char* begin() const { return pbegin; }
@@ -906,12 +906,6 @@ public:
     {
         this->nSize += nSize;
         return *this;
-    }
-
-    /** Pretend _nSize bytes are written, without specifying them. */
-    void seek(size_t _nSize)
-    {
-        this->nSize += _nSize;
     }
 
     template <typename T>

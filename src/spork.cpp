@@ -11,6 +11,7 @@
 #include "protocol.h"
 #include "sync.h"
 #include "util.h"
+#include <boost/lexical_cast.hpp>
 
 using namespace std;
 using namespace boost;
@@ -131,15 +132,14 @@ void ReprocessBlocks(int nBlocks)
         ++it;
     }
 
-    CValidationState state;
     {
         LOCK(cs_main);
         DisconnectBlocksAndReprocess(nBlocks);
     }
 
-    if (state.IsValid()) {
-        ActivateBestChain(state);
-    }
+    CValidationState state;
+
+    ActivateBestChain(state);
 }
 
 bool CSporkManager::CheckSignature(CSporkMessage& spork)
@@ -156,10 +156,9 @@ bool CSporkManager::CheckSignature(CSporkMessage& spork)
     return true;
 }
 
-
 bool CSporkManager::Sign(CSporkMessage& spork)
 {
-    std::string strMessage = std::to_string(spork.nSporkID) + std::to_string(spork.nValue) + std::to_string(spork.nTimeSigned);
+    std::string strMessage = boost::lexical_cast<std::string>(spork.nSporkID) + boost::lexical_cast<std::string>(spork.nValue) + boost::lexical_cast<std::string>(spork.nTimeSigned);
 
     CKey key2;
     CPubKey pubkey2;

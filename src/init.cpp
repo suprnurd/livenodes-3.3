@@ -163,7 +163,6 @@ public:
 
 static CCoinsViewDB* pcoinsdbview = NULL;
 static CCoinsViewErrorCatcher* pcoinscatcher = NULL;
-static boost::scoped_ptr<ECCVerifyHandle> globalVerifyHandle;
 
 static boost::thread_group threadGroup;
 static CScheduler scheduler;
@@ -283,8 +282,6 @@ void Shutdown()
     delete pwalletMain;
     pwalletMain = NULL;
 #endif
-    globalVerifyHandle.reset();
-    ECC_Stop();
     LogPrintf("%s: done\n", __func__);
 }
 
@@ -953,36 +950,22 @@ bool AppInit2()
         }
     }
     nTxConfirmTarget = GetArg("-txconfirmtarget", 1);
-    bSpendZeroConfChange = GetBoolArg("-spendzeroconfchange", false);
-    bdisableSystemnotifications = GetBoolArg("-disablesystemnotifications", false);
-    fSendFreeTransactions = GetBoolArg("-sendfreetransactions", false);
-    fEnableAutoConvert = GetBoolArg("-enableautoconvertaddress", DEFAULT_AUTOCONVERTADDRESS);
+    bSpendZeroConfChange = GetArg("-spendzeroconfchange", true);
+    fSendFreeTransactions = GetArg("-sendfreetransactions", false);
 
     std::string strWalletFile = GetArg("-wallet", "wallet.dat");
 #endif // ENABLE_WALLET
 
-    fIsBareMultisigStd = GetBoolArg("-permitbaremultisig", true) != 0;
+    fIsBareMultisigStd = GetArg("-permitbaremultisig", true) != 0;
     nMaxDatacarrierBytes = GetArg("-datacarriersize", nMaxDatacarrierBytes);
 
     fAlerts = GetBoolArg("-alerts", DEFAULT_ALERTS);
 
-    if (GetBoolArg("-peerbloomfilterszc", DEFAULT_PEERBLOOMFILTERS_ZC))
-        nLocalServices |= NODE_BLOOM_LIGHT_ZC;
 
-    if (nLocalServices != NODE_BLOOM_LIGHT_ZC) {
-
-        if (GetBoolArg("-peerbloomfilters", DEFAULT_PEERBLOOMFILTERS))
-            nLocalServices |= NODE_BLOOM;
-
-    }
-
-    nMaxTipAge = GetArg("-maxtipage", DEFAULT_MAX_TIP_AGE);
+    if (GetBoolArg("-peerbloomfilters", DEFAULT_PEERBLOOMFILTERS))
+        nLocalServices |= NODE_BLOOM;
 
     // ********************************************************* Step 4: application initialization: dir lock, daemonize, pidfile, debug log
-
-    // Initialize elliptic curve code
-    ECC_Start();
-    globalVerifyHandle.reset(new ECCVerifyHandle());
 
     // Sanity check
     if (!InitSanityCheck())
@@ -1196,25 +1179,9 @@ bool AppInit2()
 
     }  // (!fDisableWallet)
 #endif // ENABLE_WALLET
-
     // ********************************************************* Step 6: network initialization
 
     RegisterNodeSignals(GetNodeSignals());
-
-    // sanitize comments per BIP-0014, format user agent and check total size
-    std::vector<std::string> uacomments;
-    for (const std::string& cmt : mapMultiArgs["-uacomment"]) {
-        if (cmt != SanitizeString(cmt, SAFE_CHARS_UA_COMMENT))
-            return InitError(strprintf(_("User Agent comment (%s) contains unsafe characters."), cmt));
-        uacomments.push_back(cmt);
-    }
-
-    // format user agent, check total size
-    strSubVersion = FormatSubVersion(CLIENT_NAME, CLIENT_VERSION, uacomments);
-    if (strSubVersion.size() > MAX_SUBVERSION_LENGTH) {
-        return InitError(strprintf(_("Total length of network version string (%i) exceeds maximum length (%i). Reduce the number or size of uacomments."),
-            strSubVersion.size(), MAX_SUBVERSION_LENGTH));
-    }
 
     if (mapArgs.count("-onlynet")) {
         std::set<enum Network> nets;
