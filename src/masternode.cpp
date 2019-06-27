@@ -73,9 +73,14 @@ CMasternode::CMasternode()
     cacheInputAgeBlock = 0;
     unitTest = false;
     allowFreeTx = true;
+    nActiveState = MASTERNODE_ENABLED,
     protocolVersion = PROTOCOL_VERSION;
     nLastDsq = 0;
+    nScanningErrorCount = 0;
+    nLastScanningErrorBlockHeight = 0;
     lastTimeChecked = 0;
+    nLastDsee = 0;  // temporary, do not save. Remove after migration to v12
+    nLastDseep = 0; // temporary, do not save. Remove after migration to v12
 }
 
 CMasternode::CMasternode(const CMasternode& other)
@@ -94,9 +99,14 @@ CMasternode::CMasternode(const CMasternode& other)
     cacheInputAgeBlock = other.cacheInputAgeBlock;
     unitTest = other.unitTest;
     allowFreeTx = other.allowFreeTx;
+    nActiveState = MASTERNODE_ENABLED,
     protocolVersion = other.protocolVersion;
     nLastDsq = other.nLastDsq;
+    nScanningErrorCount = other.nScanningErrorCount;
+    nLastScanningErrorBlockHeight = other.nLastScanningErrorBlockHeight;
     lastTimeChecked = 0;
+    nLastDsee = other.nLastDsee;   // temporary, do not save. Remove after migration to v12
+    nLastDseep = other.nLastDseep; // temporary, do not save. Remove after migration to v12
 }
 
 CMasternode::CMasternode(const CMasternodeBroadcast& mnb)
@@ -119,9 +129,14 @@ CMasternode::CMasternode(const CMasternodeBroadcast& mnb)
     cacheInputAgeBlock = 0;
     unitTest = false;
     allowFreeTx = true;
+    nActiveState = MASTERNODE_ENABLED,
     protocolVersion = mnb.protocolVersion;
     nLastDsq = mnb.nLastDsq;
+    nScanningErrorCount = 0;
+    nLastScanningErrorBlockHeight = 0;
     lastTimeChecked = 0;
+    nLastDsee = 0;  // temporary, do not save. Remove after migration to v12
+    nLastDseep = 0; // temporary, do not save. Remove after migration to v12
 }
 
 //
@@ -129,23 +144,22 @@ CMasternode::CMasternode(const CMasternodeBroadcast& mnb)
 //
 bool CMasternode::UpdateFromNewBroadcast(CMasternodeBroadcast& mnb)
 {
-    if(mnb.sigTime <= sigTime)
-        return false;
-
-    pubKeyMasternode = mnb.pubKeyMasternode;
-    pubKeyCollateralAddress = mnb.pubKeyCollateralAddress;
-    sigTime = mnb.sigTime;
-    sig = mnb.sig;
-    protocolVersion = mnb.protocolVersion;
-    addr = mnb.addr;
-    lastTimeChecked = 0;
-    int nDoS = 0;
-    if (mnb.lastPing == CMasternodePing() || (mnb.lastPing != CMasternodePing() && mnb.lastPing.CheckAndUpdate(nDoS, false))) {
-        lastPing = mnb.lastPing;
-        mnodeman.mapSeenMasternodePing.insert(make_pair(lastPing.GetHash(), lastPing));
+    if (mnb.sigTime > sigTime) {
+        pubKeyMasternode = mnb.pubKeyMasternode;
+        pubKeyCollateralAddress = mnb.pubKeyCollateralAddress;
+        sigTime = mnb.sigTime;
+        sig = mnb.sig;
+        protocolVersion = mnb.protocolVersion;
+        addr = mnb.addr;
+        lastTimeChecked = 0;
+        int nDoS = 0;
+        if (mnb.lastPing == CMasternodePing() || (mnb.lastPing != CMasternodePing() && mnb.lastPing.CheckAndUpdate(nDoS, false))) {
+            lastPing = mnb.lastPing;
+            mnodeman.mapSeenMasternodePing.insert(make_pair(lastPing.GetHash(), lastPing));
+        }
+        return true;
     }
-
-    return true;
+    return false;
 }
 
 //
@@ -209,12 +223,14 @@ void CMasternode::Check(bool forceCheck)
 
         if(!state.IsValid()) {
             activeState = MASTERNODE_VIN_SPENT;
-    	return;
-    }
+            return;
+        }
 
         {
             TRY_LOCK(cs_main, lockMain);
-            if (!lockMain) return;
+
+            if (!lockMain)
+                return;
 
             if (!AcceptableInputs(mempool, state, CTransaction(tx), false, nullptr)) {
                 activeState = MASTERNODE_VIN_SPENT;
@@ -260,9 +276,11 @@ int64_t CMasternode::GetLastPaid()
     // use a deterministic offset to break a tie -- 2.5 minutes
     int64_t nOffset = hash.GetCompact(false) % 150;
 
-    const CBlockIndex* BlockReading = pindexPrev;
+    if (chainActive.Tip() == NULL) return false;
 
-    int nMnCount = mnodeman.CountEnabled(Level()) / 100 * 125;
+    const CBlockIndex* BlockReading = chainActive.Tip();
+
+    int nMnCount = mnodeman.CountEnabled() * 1.25;
     int n = 0;
     for (unsigned int i = 1; BlockReading && BlockReading->nHeight > 0; i++) {
         if (n >= nMnCount) {
@@ -280,10 +298,36 @@ int64_t CMasternode::GetLastPaid()
             }
         }
 
+        if (BlockReading->pprev == NULL) {
+            assert(BlockReading);
+            break;
+        }
         BlockReading = BlockReading->pprev;
     }
 
     return 0;
+}
+
+std::string CMasternode::GetStatus()
+{
+    switch (nActiveState) {
+    case CMasternode::MASTERNODE_PRE_ENABLED:
+        return "PRE_ENABLED";
+    case CMasternode::MASTERNODE_ENABLED:
+        return "ENABLED";
+    case CMasternode::MASTERNODE_EXPIRED:
+        return "EXPIRED";
+    case CMasternode::MASTERNODE_OUTPOINT_SPENT:
+        return "OUTPOINT_SPENT";
+    case CMasternode::MASTERNODE_REMOVE:
+        return "REMOVE";
+    case CMasternode::MASTERNODE_WATCHDOG_EXPIRED:
+        return "WATCHDOG_EXPIRED";
+    case CMasternode::MASTERNODE_POSE_BAN:
+        return "POSE_BAN";
+    default:
+        return "UNKNOWN";
+    }
 }
 
 bool CMasternode::IsValidNetAddr()
@@ -349,6 +393,7 @@ CMasternodeBroadcast::CMasternodeBroadcast()
     vin = CTxIn();
     addr = CService();
     pubKeyCollateralAddress = CPubKey();
+    pubKeyMasternode1 = CPubKey();
     sig = std::vector<unsigned char>();
     activeState = MASTERNODE_ENABLED;
     sigTime = GetAdjustedTime();
@@ -359,6 +404,8 @@ CMasternodeBroadcast::CMasternodeBroadcast()
     allowFreeTx = true;
     protocolVersion = PROTOCOL_VERSION;
     nLastDsq = 0;
+    nScanningErrorCount = 0;
+    nLastScanningErrorBlockHeight = 0;
 }
 
 CMasternodeBroadcast::CMasternodeBroadcast(CService newAddr, CTxIn newVin, CPubKey pubKeyCollateralAddressNew, CPubKey pubKeyMasternodeNew, int protocolVersionIn)
@@ -377,6 +424,8 @@ CMasternodeBroadcast::CMasternodeBroadcast(CService newAddr, CTxIn newVin, CPubK
     allowFreeTx = true;
     protocolVersion = protocolVersionIn;
     nLastDsq = 0;
+    nScanningErrorCount = 0;
+    nLastScanningErrorBlockHeight = 0;
 }
 
 CMasternodeBroadcast::CMasternodeBroadcast(const CMasternode& mn)
@@ -395,6 +444,8 @@ CMasternodeBroadcast::CMasternodeBroadcast(const CMasternode& mn)
     allowFreeTx = mn.allowFreeTx;
     protocolVersion = mn.protocolVersion;
     nLastDsq = mn.nLastDsq;
+    nScanningErrorCount = mn.nScanningErrorCount;
+    nLastScanningErrorBlockHeight = mn.nLastScanningErrorBlockHeight;
 }
 
 bool CMasternodeBroadcast::Create(std::string strService, std::string strKeyMasternode, std::string strTxHash, std::string strOutputIndex, std::string& strErrorRet, CMasternodeBroadcast& mnbRet, bool fOffline)

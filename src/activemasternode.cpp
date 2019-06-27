@@ -4,6 +4,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include "activemasternode.h"
+
 #include "addrman.h"
 #include "masternode.h"
 #include "masternodeconfig.h"
@@ -262,19 +263,42 @@ bool CActiveMasternode::CreateBroadcast(CTxIn vin, CService service, CKey keyCol
         return false;
     }
 
-    mnodeman.mapSeenMasternodeBroadcast.insert(make_pair(mnb.GetHash(), mnb));
-    masternodeSync.AddedMasternodeList(mnb.GetHash());
+    /*
+     * IT'S SAFE TO REMOVE THIS IN FURTHER VERSIONS
+     * AFTER MIGRATION TO V12 IS DONE
+     */
 
-    CMasternode* pmn = mnodeman.Find(vin);
-    if (!pmn) {
-        CMasternode mn(mnb);
-        mnodeman.Add(mn);
-    } else {
-        pmn->UpdateFromNewBroadcast(mnb);
+    // for migration purposes inject our node in old masternodes' list too
+    std::string retErrorMessage;
+    std::vector<unsigned char> vchMasterNodeSignature;
+    int64_t masterNodeSignatureTime = GetAdjustedTime();
+    std::string donationAddress = "";
+    int donationPercantage = 0;
+
+    std::string vchPubKey(pubKeyCollateralAddress.begin(), pubKeyCollateralAddress.end());
+    std::string vchPubKey2(pubKeyMasternode.begin(), pubKeyMasternode.end());
+
+    std::string strMessage = service.ToString() + std::to_string(masterNodeSignatureTime) + vchPubKey + vchPubKey2 + std::to_string(PROTOCOL_VERSION) + donationAddress + std::to_string(donationPercantage);
+
+    if (!obfuScationSigner.SignMessage(strMessage, retErrorMessage, vchMasterNodeSignature, keyCollateralAddress)) {
+        errorMessage = "dsee sign message failed: " + retErrorMessage;
+        LogPrintf("CActiveMasternode::Register() - Error: %s\n", errorMessage.c_str());
+        return false;
     }
 
-    LogPrintf("CActiveMasternode::Register() - RelayElectionEntry vin = %s\n", vin.ToString());
-    mnb.Relay();
+    if (!obfuScationSigner.VerifyMessage(pubKeyCollateralAddress, vchMasterNodeSignature, strMessage, retErrorMessage)) {
+        errorMessage = "dsee verify message failed: " + retErrorMessage;
+        LogPrintf("CActiveMasternode::Register() - Error: %s\n", errorMessage.c_str());
+        return false;
+    }
+
+    LOCK(cs_vNodes);
+    for (CNode* pnode : vNodes)
+        pnode->PushMessage("dsee", vin, service, vchMasterNodeSignature, masterNodeSignatureTime, pubKeyCollateralAddress, pubKeyMasternode, -1, -1, masterNodeSignatureTime, PROTOCOL_VERSION, donationAddress, donationPercantage);
+
+    /*
+     * END OF "REMOVE"
+     */
 
     return true;
 }
@@ -286,6 +310,9 @@ bool CActiveMasternode::GetMasterNodeVin(CTxIn& vin, CPubKey& pubkey, CKey& secr
 
 bool CActiveMasternode::GetMasterNodeVin(CTxIn& vin, CPubKey& pubkey, CKey& secretKey, std::string strTxHash, std::string strOutputIndex)
 {
+	// wait for reindex and/or import to finish
+	if (fImporting || fReindex) return false;
+
     // Find possible candidates
     TRY_LOCK(pwalletMain->cs_wallet, fWallet);
     if (!fWallet) return false;
@@ -350,6 +377,9 @@ bool CActiveMasternode::GetMasterNodeVin(CTxIn& vin, CPubKey& pubkey, CKey& secr
 // Extract Masternode vin information from output
 bool CActiveMasternode::GetVinFromOutput(COutput out, CTxIn& vin, CPubKey& pubkey, CKey& secretKey)
 {
+ 	  // wait for reindex and/or import to finish
+	  if (fImporting || fReindex) return false;
+
     CScript pubScript;
 
     vin = CTxIn(out.tx->GetHash(), out.i);

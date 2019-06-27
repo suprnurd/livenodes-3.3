@@ -154,6 +154,7 @@ public:
     /////////////////////////////////////////////////////////////////////LIVENODES
     static unsigned Level(CAmount vin_val, int blockHeight);
     static unsigned Level(const CTxIn& vin, int blockHeight);
+
     static bool IsDepositCoins(CAmount);
     static bool IsDepositCoins(const CTxIn& vin, CAmount& vin_val);
     /////////////////////////////////////////////////////////////////////LIVENODES
