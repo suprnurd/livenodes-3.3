@@ -591,11 +591,14 @@ bool CMasternodeBroadcast::CheckInputsAndAdd(int& nDoS)
             mnodeman.Remove(pmn->vin);
     }
 
-    CValidationState state;
-    CMutableTransaction tx = CMutableTransaction();
-    CTxOut vout = CTxOut(9999.99 * COIN, obfuScationPool.collateralPubKey);
-    tx.vin.push_back(vin);
-    tx.vout.push_back(vout);
+    CMutableTransaction tx;
+
+    CValidationState state = CMasternodeMan::GetInputCheckingTx(vin, tx);
+
+    if(!state.IsValid()) {
+        state.IsInvalid(nDoS);
+        return false;
+    }
 
     {
         TRY_LOCK(cs_main, lockMain);
