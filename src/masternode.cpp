@@ -215,28 +215,9 @@ void CMasternode::Check(bool forceCheck)
         return;
     }
 
-    if (!unitTest) {
-
-        CMutableTransaction tx;
-
-        CValidationState state = CMasternodeMan::GetInputCheckingTx(vin, tx);
-
-        if(!state.IsValid()) {
-            activeState = MASTERNODE_VIN_SPENT;
-            return;
-        }
-
-        {
-            TRY_LOCK(cs_main, lockMain);
-
-            if (!lockMain)
-                return;
-
-            if (!AcceptableInputs(mempool, state, CTransaction(tx), false, nullptr)) {
-                activeState = MASTERNODE_VIN_SPENT;
-                return;
-            }
-        }
+    if(lastPing.sigTime - sigTime < MASTERNODE_MIN_MNP_SECONDS){
+    	  activeState = MASTERNODE_PRE_ENABLED;
+        return;
     }
 
     activeState = MASTERNODE_ENABLED; // OK
@@ -584,11 +565,6 @@ bool CMasternodeBroadcast::CheckAndUpdate(int& nDos)
         return error("CMasternodeBroadcast::CheckAndUpdate - Got bad Masternode address signature : %s", errorMessage);
     }
 
-    if (Params().NetworkID() == CBaseChainParams::MAIN) {
-        if (addr.GetPort() != 30555) return false;
-    } else if (addr.GetPort() == 30555)
-        return false;
-
     //search existing Masternode list, this is where we update existing Masternodes with new mnb broadcasts
     CMasternode* pmn = mnodeman.Find(vin);
 
@@ -645,11 +621,6 @@ bool CMasternodeBroadcast::CheckInputsAndAdd(int& nDoS)
     CMutableTransaction tx;
 
     CValidationState state = CMasternodeMan::GetInputCheckingTx(vin, tx);
-
-    if(!state.IsValid()) {
-        state.IsInvalid(nDoS);
-        return false;
-    }
 
     {
         TRY_LOCK(cs_main, lockMain);
@@ -721,8 +692,7 @@ bool CMasternodeBroadcast::Sign(CKey& keyCollateralAddress)
     std::string errorMessage;
     sigTime = GetAdjustedTime();
 
-    std::string strMessage;
-  	strMessage = GetNewStrMessage();
+    std::string strMessage = GetOldStrMessage();
 
     if (!obfuScationSigner.SignMessage(strMessage, errorMessage, sig, keyCollateralAddress))
     	return error("CMasternodeBroadcast::Sign() - Error: %s", errorMessage);

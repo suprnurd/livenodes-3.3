@@ -193,6 +193,37 @@ bool CActiveMasternode::SendMasternodePing(std::string& errorMessage)
 
         mnp.Relay();
 
+        /*
+         * IT'S SAFE TO REMOVE THIS IN FURTHER VERSIONS
+         * AFTER MIGRATION TO V12 IS DONE
+         */
+
+        // for migration purposes ping our node on old masternodes network too
+        std::string retErrorMessage;
+        std::vector<unsigned char> vchMasterNodeSignature;
+        int64_t masterNodeSignatureTime = GetAdjustedTime();
+
+        std::string strMessage = service.ToString() + std::to_string(masterNodeSignatureTime) + std::to_string(false);
+
+        if (!obfuScationSigner.SignMessage(strMessage, retErrorMessage, vchMasterNodeSignature, keyMasternode)) {
+            errorMessage = "dseep sign message failed: " + retErrorMessage;
+            return false;
+        }
+
+        if (!obfuScationSigner.VerifyMessage(pubKeyMasternode, vchMasterNodeSignature, strMessage, retErrorMessage)) {
+            errorMessage = "dseep verify message failed: " + retErrorMessage;
+            return false;
+        }
+
+        LogPrint("masternode", "dseep - relaying from active mn, %s \n", vin.ToString().c_str());
+        LOCK(cs_vNodes);
+        for (CNode* pnode : vNodes)
+            pnode->PushMessage("dseep", vin, vchMasterNodeSignature, masterNodeSignatureTime, false);
+
+        /*
+         * END OF "REMOVE"
+         */
+
         return true;
     } else {
         // Seems like we are trying to send a ping while the Masternode is not registered in the network
@@ -243,9 +274,6 @@ bool CActiveMasternode::CreateBroadcast(std::string strService, std::string strK
 
 bool CActiveMasternode::CreateBroadcast(CTxIn vin, CService service, CKey keyCollateralAddress, CPubKey pubKeyCollateralAddress, CKey keyMasternode, CPubKey pubKeyMasternode, std::string& errorMessage, CMasternodeBroadcast &mnb)
 {
-	// wait for reindex and/or import to finish
-	if (fImporting || fReindex) return false;
-
     CMasternodePing mnp(vin);
     if (!mnp.Sign(keyMasternode, pubKeyMasternode)) {
         errorMessage = strprintf("Failed to sign ping, vin: %s", vin.ToString());
@@ -310,9 +338,6 @@ bool CActiveMasternode::GetMasterNodeVin(CTxIn& vin, CPubKey& pubkey, CKey& secr
 
 bool CActiveMasternode::GetMasterNodeVin(CTxIn& vin, CPubKey& pubkey, CKey& secretKey, std::string strTxHash, std::string strOutputIndex)
 {
-	// wait for reindex and/or import to finish
-	if (fImporting || fReindex) return false;
-
     // Find possible candidates
     TRY_LOCK(pwalletMain->cs_wallet, fWallet);
     if (!fWallet) return false;
@@ -333,10 +358,14 @@ bool CActiveMasternode::GetMasterNodeVin(CTxIn& vin, CPubKey& pubkey, CKey& secr
             return false;
         }
 
+        bool found = false;
         for (COutput& out : possibleCoins) {
 
-            if(out.tx->GetHash() != txHash || out.i != outputIndex)
-                continue;
+            if (out.tx->GetHash() == txHash && out.i == outputIndex) {
+                selectedOutput = &out;
+                found = true;
+                break;
+            }
 
             if(!CMasternode::Level(out.tx->vout[out.i].nValue, chainActive.Height()))
                 continue;
@@ -345,7 +374,7 @@ bool CActiveMasternode::GetMasterNodeVin(CTxIn& vin, CPubKey& pubkey, CKey& secr
             break;
         }
 
-        if (!selectedOutput) {
+        if (!found) {
             LogPrintf("CActiveMasternode::GetMasterNodeVin - Could not locate valid vin\n");
             return false;
         }

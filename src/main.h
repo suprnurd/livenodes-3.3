@@ -45,6 +45,7 @@ class CBlockIndex;
 class CBlockTreeDB;
 class CBloomFilter;
 class CSporkDB;
+class CBloomFilter;
 class CInv;
 class CScriptCheck;
 class CValidationInterface;
@@ -230,9 +231,8 @@ bool GetOutput(const uint256& hash, unsigned int index, CValidationState& state,
 
 // ***TODO***
 double ConvertBitsToDouble(unsigned int nBits);
-int64_t GetMasternodePayment(int nHeight, int64_t blockValue, int nMasternodeCount);
-unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, const CBlockHeader* pblock, bool fProofOfStake);
 int64_t GetMasternodePayment(int nHeight, unsigned mnlevel, int64_t blockValue);
+unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, const CBlockHeader* pblock, bool fProofOfStake);
 
 bool ActivateBestChain(CValidationState& state, CBlock* pblock = NULL, bool fAlreadyChecked = false);
 CAmount GetBlockValue(int nHeight);
@@ -614,6 +614,9 @@ extern CCoinsViewCache* pcoinsTip;
 
 /** Global variable that points to the active block tree (protected by cs_main) */
 extern CBlockTreeDB* pblocktree;
+
+/** Global variable that points to the spork database (protected by cs_main) */
+extern CSporkDB* pSporkDB;
 
 struct CBlockTemplate {
     CBlock block;

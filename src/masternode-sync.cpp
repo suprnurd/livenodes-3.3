@@ -78,36 +78,28 @@ void CMasternodeSync::Reset()
 
 void CMasternodeSync::AddedMasternodeList(uint256 hash)
 {
-    auto ins_res = mapSeenSyncMNB.emplace(hash, 1);
-
-    if(!ins_res.second) {
-
-        auto& seen_sync_mnb = ins_res.first->second;
-
-        if(seen_sync_mnb >= MASTERNODE_SYNC_THRESHOLD)
-            return;
-
-        ++seen_sync_mnb;
+    if (mnodeman.mapSeenMasternodeBroadcast.count(hash)) {
+        if (mapSeenSyncMNB[hash] < MASTERNODE_SYNC_THRESHOLD) {
+            lastMasternodeList = GetTime();
+            mapSeenSyncMNB[hash]++;
+        }
+    } else {
+        lastMasternodeList = GetTime();
+        mapSeenSyncMNB.insert(make_pair(hash, 1));
     }
-
-    lastMasternodeList = GetTime();
 }
 
 void CMasternodeSync::AddedMasternodeWinner(uint256 hash)
 {
-    auto ins_res = mapSeenSyncMNW.emplace(hash, 1);
-
-    if(!ins_res.second) {
-
-        auto& seen_sync_mnw = ins_res.first->second;
-
-        if(seen_sync_mnw >= MASTERNODE_SYNC_THRESHOLD)
-            return;
-
-        ++seen_sync_mnw;
+    if (masternodePayments.mapMasternodePayeeVotes.count(hash)) {
+        if (mapSeenSyncMNW[hash] < MASTERNODE_SYNC_THRESHOLD) {
+            lastMasternodeWinner = GetTime();
+            mapSeenSyncMNW[hash]++;
+        }
+    } else {
+        lastMasternodeWinner = GetTime();
+        mapSeenSyncMNW.insert(make_pair(hash, 1));
     }
-
-    lastMasternodeWinner = GetTime();
 }
 
 void CMasternodeSync::GetNextAsset()
@@ -299,11 +291,8 @@ void CMasternodeSync::Process()
             }
 
             if (RequestedMasternodeAssets == MASTERNODE_SYNC_MNW) {
-
                 if (lastMasternodeWinner > 0 && lastMasternodeWinner < GetTime() - MASTERNODE_SYNC_TIMEOUT * 2 && RequestedMasternodeAttempt >= MASTERNODE_SYNC_THRESHOLD) { //hasn't received a new item in the last five seconds, so we'll move to the
                     GetNextAsset();
-                    // Try to activate our masternode if possible
-                    activeMasternode.ManageStatus();
                     return;
                 }
 
