@@ -11,7 +11,6 @@
 #include "protocol.h"
 #include "sync.h"
 #include "util.h"
-#include <boost/lexical_cast.hpp>
 
 using namespace std;
 using namespace boost;
@@ -37,6 +36,10 @@ void ProcessSpork(CNode* pfrom, std::string& strCommand, CDataStream& vRecv)
 
         if (chainActive.Tip() == NULL) return;
 
+        // Ignore spork messages about unknown/deleted sporks
+        std::string strSpork = sporkManager.GetSporkNameByID(spork.nSporkID);
+        if (strSpork == "Unknown") return;
+
         uint256 hash = spork.GetHash();
         if (mapSporksActive.count(spork.nSporkID)) {
             if (mapSporksActive[spork.nSporkID].nTimeSigned >= spork.nTimeSigned) {
@@ -47,7 +50,7 @@ void ProcessSpork(CNode* pfrom, std::string& strCommand, CDataStream& vRecv)
             }
         }
 
-        LogPrintf("spork - new %s ID %d Time %d bestHeight %d\n", hash.ToString(), spork.nSporkID, spork.nValue, chainActive.Tip()->nHeight);
+        LogPrintf("%s : new %s ID %d Time %d bestHeight %d\n", __func__, hash.ToString(), spork.nSporkID, spork.nValue, chainActive.Tip()->nHeight);
 
         if (!sporkManager.CheckSignature(spork)) {
             LogPrintf("%s : Invalid Signature\n", __func__);
@@ -59,7 +62,7 @@ void ProcessSpork(CNode* pfrom, std::string& strCommand, CDataStream& vRecv)
         mapSporksActive[spork.nSporkID] = spork;
         sporkManager.Relay(spork);
 
-        // PIVX: add to spork database.
+        //does a task if needed
         ExecuteSpork(spork.nSporkID, spork.nValue);
     }
     if (strCommand == "getsporks") {
@@ -96,7 +99,8 @@ int64_t GetSporkValue(int nSporkID)
         if (nSporkID == SPORK_6_MN_WINNER_MINIMUM_AGE) r = SPORK_6_MN_WINNER_MINIMUM_AGE_DEFAULT;
         if (nSporkID == SPORK_7_MN_REBROADCAST_ENFORCEMENT) r = SPORK_7_MN_REBROADCAST_ENFORCEMENT_DEFAULT;
         if (nSporkID == SPORK_8_NEW_PROTOCOL_ENFORCEMENT) r = SPORK_8_NEW_PROTOCOL_ENFORCEMENT_DEFAULT;
-        if (r == -1) LogPrintf("%s : Unknown Spork %d\n", __func__, nSporkID);
+
+        if (r == -1) LogPrintf("GetSpork::Unknown Spork %d\n", nSporkID);
     }
 
     return r;
@@ -158,7 +162,7 @@ bool CSporkManager::CheckSignature(CSporkMessage& spork)
 
 bool CSporkManager::Sign(CSporkMessage& spork)
 {
-    std::string strMessage = boost::lexical_cast<std::string>(spork.nSporkID) + boost::lexical_cast<std::string>(spork.nValue) + boost::lexical_cast<std::string>(spork.nTimeSigned);
+    std::string strMessage = std::to_string(spork.nSporkID) + std::to_string(spork.nValue) + std::to_string(spork.nTimeSigned);
 
     CKey key2;
     CPubKey pubkey2;

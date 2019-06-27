@@ -288,7 +288,7 @@ static inline uint32_t LE_LOAD32(const uint8_t *p) {
 // Determine if the CPU running this program can accelerate the CRC32C
 // calculation.
 static bool CanAccelerateCRC32C() {
-    return false;
+  return false;
 }
 
 uint32_t Extend(uint32_t crc, const char* buf, size_t size) {

@@ -25,6 +25,156 @@ CCriticalSection cs_vecPayments;
 CCriticalSection cs_mapMasternodeBlocks;
 CCriticalSection cs_mapMasternodePayeeVotes;
 
+//
+// CMasternodePaymentDB
+//
+
+CMasternodePaymentDB::CMasternodePaymentDB()
+{
+    pathDB = GetDataDir() / "mnpayments.dat";
+    strMagicMessage = "MasternodePayments";
+}
+
+bool CMasternodePaymentDB::Write(const CMasternodePayments& objToSave)
+{
+    int64_t nStart = GetTimeMillis();
+
+    // serialize, checksum data up to that point, then append checksum
+    CDataStream ssObj(SER_DISK, CLIENT_VERSION);
+    ssObj << strMagicMessage;                   // masternode cache file specific magic message
+    ssObj << FLATDATA(Params().MessageStart()); // network specific magic number
+    ssObj << objToSave;
+    uint256 hash = Hash(ssObj.begin(), ssObj.end());
+    ssObj << hash;
+
+    // open output file, and associate with CAutoFile
+    FILE* file = fopen(pathDB.string().c_str(), "wb");
+    CAutoFile fileout(file, SER_DISK, CLIENT_VERSION);
+    if (fileout.IsNull())
+        return error("%s : Failed to open file %s", __func__, pathDB.string());
+
+    // Write and commit header, data
+    try {
+        fileout << ssObj;
+    } catch (std::exception& e) {
+        return error("%s : Serialize or I/O error - %s", __func__, e.what());
+    }
+    fileout.fclose();
+
+    LogPrint("masternode","Written info to mnpayments.dat  %dms\n", GetTimeMillis() - nStart);
+
+    return true;
+}
+
+CMasternodePaymentDB::ReadResult CMasternodePaymentDB::Read(CMasternodePayments& objToLoad, bool fDryRun)
+{
+    int64_t nStart = GetTimeMillis();
+    // open input file, and associate with CAutoFile
+    FILE* file = fopen(pathDB.string().c_str(), "rb");
+    CAutoFile filein(file, SER_DISK, CLIENT_VERSION);
+    if (filein.IsNull()) {
+        error("%s : Failed to open file %s", __func__, pathDB.string());
+        return FileError;
+    }
+
+    // use file size to size memory buffer
+    int fileSize = boost::filesystem::file_size(pathDB);
+    int dataSize = fileSize - sizeof(uint256);
+    // Don't try to resize to a negative number if file is small
+    if (dataSize < 0)
+        dataSize = 0;
+    vector<unsigned char> vchData;
+    vchData.resize(dataSize);
+    uint256 hashIn;
+
+    // read data and checksum from file
+    try {
+        filein.read((char*)&vchData[0], dataSize);
+        filein >> hashIn;
+    } catch (std::exception& e) {
+        error("%s : Deserialize or I/O error - %s", __func__, e.what());
+        return HashReadError;
+    }
+    filein.fclose();
+
+    CDataStream ssObj(vchData, SER_DISK, CLIENT_VERSION);
+
+    // verify stored checksum matches input data
+    uint256 hashTmp = Hash(ssObj.begin(), ssObj.end());
+    if (hashIn != hashTmp) {
+        error("%s : Checksum mismatch, data corrupted", __func__);
+        return IncorrectHash;
+    }
+
+    unsigned char pchMsgTmp[4];
+    std::string strMagicMessageTmp;
+    try {
+        // de-serialize file header (masternode cache file specific magic message) and ..
+        ssObj >> strMagicMessageTmp;
+
+        // ... verify the message matches predefined one
+        if (strMagicMessage != strMagicMessageTmp) {
+            error("%s : Invalid masternode payement cache magic message", __func__);
+            return IncorrectMagicMessage;
+        }
+
+
+        // de-serialize file header (network specific magic number) and ..
+        ssObj >> FLATDATA(pchMsgTmp);
+
+        // ... verify the network matches ours
+        if (memcmp(pchMsgTmp, Params().MessageStart(), sizeof(pchMsgTmp))) {
+            error("%s : Invalid network magic number", __func__);
+            return IncorrectMagicNumber;
+        }
+
+        // de-serialize data into CMasternodePayments object
+        ssObj >> objToLoad;
+    } catch (std::exception& e) {
+        objToLoad.Clear();
+        error("%s : Deserialize or I/O error - %s", __func__, e.what());
+        return IncorrectFormat;
+    }
+
+    LogPrint("masternode","Loaded info from mnpayments.dat  %dms\n", GetTimeMillis() - nStart);
+    LogPrint("masternode","  %s\n", objToLoad.ToString());
+    if (!fDryRun) {
+        LogPrint("masternode","Masternode payments manager - cleaning....\n");
+        objToLoad.CleanPaymentList();
+        LogPrint("masternode","Masternode payments manager - result:\n");
+        LogPrint("masternode","  %s\n", objToLoad.ToString());
+    }
+
+    return Ok;
+}
+
+void DumpMasternodePayments()
+{
+    int64_t nStart = GetTimeMillis();
+
+    CMasternodePaymentDB paymentdb;
+    CMasternodePayments tempPayments;
+
+    LogPrint("masternode","Verifying mnpayments.dat format...\n");
+    CMasternodePaymentDB::ReadResult readResult = paymentdb.Read(tempPayments, true);
+    // there was an error and it was not an error on file opening => do not proceed
+    if (readResult == CMasternodePaymentDB::FileError)
+        LogPrint("masternode","Missing budgets file - mnpayments.dat, will try to recreate\n");
+    else if (readResult != CMasternodePaymentDB::Ok) {
+        LogPrint("masternode","Error reading mnpayments.dat: ");
+        if (readResult == CMasternodePaymentDB::IncorrectFormat)
+            LogPrint("masternode","magic is ok but data has invalid format, will try to recreate\n");
+        else {
+            LogPrint("masternode","file format is unknown or invalid, please fix it manually\n");
+            return;
+        }
+    }
+    LogPrint("masternode","Writting info to mnpayments.dat...\n");
+    paymentdb.Write(masternodePayments);
+
+    LogPrint("masternode","Budget dump finished  %dms\n", GetTimeMillis() - nStart);
+}
+
 bool IsBlockValueValid(const CBlock& block, CAmount nExpectedValue, CAmount nMinted)
 {
     CBlockIndex* pindexPrev = chainActive.Tip();
@@ -71,6 +221,15 @@ bool IsBlockPayeeValid(const CBlock& block, int nBlockHeight)
     LogPrintf("Masternode payment enforcement is disabled, accepting block\n");
 
     return true;
+}
+
+
+void FillBlockPayee(CMutableTransaction& txNew, CAmount nFees, bool fProofOfStake)
+{
+    CBlockIndex* pindexPrev = chainActive.Tip();
+    if (!pindexPrev) return;
+
+    masternodePayments.FillBlockPayee(txNew, nFees, fProofOfStake);
 }
 
 std::string GetRequiredPaymentsString(int nBlockHeight)

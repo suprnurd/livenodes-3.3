@@ -39,7 +39,7 @@ int nCompleteTXLocks;
 void ProcessMessageSwiftTX(CNode* pfrom, std::string& strCommand, CDataStream& vRecv)
 {
     if (fLiteMode) return; //disable all obfuscation/masternode related functionality
-    if (!IsSporkActive(SPORK_1_SWIFTTX)) return;
+
     if (!masternodeSync.IsBlockchainSynced()) return;
 
     if (strCommand == "ix") {
@@ -460,6 +460,15 @@ void CleanTransactionLocksList()
     }
 }
 
+int GetTransactionLockSignatures(uint256 txHash)
+{
+    if(fLargeWorkForkFound || fLargeWorkInvalidChainFound) return -2;
+
+    std::map<uint256, CTransactionLock>::iterator it = mapTxLocks.find(txHash);
+    if(it != mapTxLocks.end()) return it->second.CountSignatures();
+
+    return -1;
+}
 
 uint256 CConsensusVote::GetHash() const
 {

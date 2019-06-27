@@ -89,8 +89,6 @@ public:
         READWRITE(mAskedUsForMasternodeList);
         READWRITE(mWeAskedForMasternodeList);
         READWRITE(mWeAskedForMasternodeListEntry);
-        READWRITE(mAskedUsForWinnerMasternodeList);
-        READWRITE(mWeAskedForWinnerMasternodeList);
         READWRITE(nDsqCount);
 
         READWRITE(mapSeenMasternodeBroadcast);
