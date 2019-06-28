@@ -14,7 +14,6 @@
 #include "sync.h"
 #include "util.h"
 
-#define MASTERNODES_DUMP_SECONDS (15 * 60)
 #define MASTERNODES_DSEG_SECONDS (3 * 60 * 60)
 
 using namespace std;
@@ -89,6 +88,8 @@ public:
         READWRITE(mAskedUsForMasternodeList);
         READWRITE(mWeAskedForMasternodeList);
         READWRITE(mWeAskedForMasternodeListEntry);
+        READWRITE(mAskedUsForWinnerMasternodeList);
+        READWRITE(mWeAskedForWinnerMasternodeList);
         READWRITE(nDsqCount);
 
         READWRITE(mapSeenMasternodeBroadcast);
@@ -101,7 +102,7 @@ public:
     static CValidationState GetInputCheckingTx(const CTxIn& vin, CMutableTransaction&);
 
     /// Add an entry
-    bool Add(CMasternode& mn);
+    bool Add(const CMasternode& mn);
 
     ///return all MN's
     std::vector<CMasternode> GetFullMasternodeMap();
@@ -118,13 +119,12 @@ public:
     /// Clear Masternode vector
     void Clear();
 
-    int CountEnabled(int protocolVersion);
     unsigned CountEnabled(unsigned mnlevel = CMasternode::LevelValue::UNSPECIFIED, int protocolVersion = -1);
     std::map<unsigned, int> CountEnabledByLevels(int protocolVersion = -1);
 
     void CountNetworks(int protocolVersion, int& ipv4, int& ipv6, int& onion);
-    
-    void DsegUpdate(CNode* pnode);
+
+    bool DsegUpdate(CNode* pnode);
     bool WinnersUpdate(CNode* node);
 
     /// Find an entry
@@ -166,8 +166,6 @@ public:
     std::string ToString() const;
 
     void Remove(CTxIn vin);
-
-    int GetEstimatedMasternodes(int nBlock);
 
     /// Update masternode list and maps using provided CMasternodeBroadcast
     void UpdateMasternodeList(CMasternodeBroadcast mnb);

@@ -420,14 +420,13 @@ UniValue startmasternode (const UniValue& params, bool fHelp)
                 continue;
             CTxIn vin = CTxIn(uint256(mne.getTxHash()), uint32_t(nIndex));
             CMasternode* pmn = mnodeman.Find(vin);
-            CMasternodeBroadcast mnb;
 
             if (pmn != NULL) {
                 if (strCommand == "missing") continue;
                 if (strCommand == "disabled" && pmn->IsEnabled()) continue;
             }
 
-            bool result = activeMasternode.CreateBroadcast(mne.getIp(), mne.getPrivKey(), mne.getTxHash(), mne.getOutputIndex(), errorMessage, mnb);
+            bool result = activeMasternode.Register(mne.getIp(), mne.getPrivKey(), mne.getTxHash(), mne.getOutputIndex(), errorMessage);
 
             UniValue statusObj(UniValue::VOBJ);
             statusObj.push_back(Pair("alias", mne.getAlias()));
@@ -468,12 +467,13 @@ UniValue startmasternode (const UniValue& params, bool fHelp)
         statusObj.push_back(Pair("alias", alias));
 
         for (CMasternodeConfig::CMasternodeEntry mne : masternodeConfig.getEntries()) {
-         
+            if (mne.getAlias() != alias)
+                continue;
+
             found = true;
             std::string errorMessage;
-            CMasternodeBroadcast mnb;
 
-            bool result = activeMasternode.CreateBroadcast(mne.getIp(), mne.getPrivKey(), mne.getTxHash(), mne.getOutputIndex(), errorMessage, mnb);
+            bool result = activeMasternode.Register(mne.getIp(), mne.getPrivKey(), mne.getTxHash(), mne.getOutputIndex(), errorMessage);
 
             statusObj.push_back(Pair("result", result ? "successful" : "failed"));
 
