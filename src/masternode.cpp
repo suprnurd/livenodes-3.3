@@ -220,6 +220,29 @@ void CMasternode::Check(bool forceCheck)
         return;
     }
 
+    if (!unitTest) {
+        CMutableTransaction tx;
+
+        CValidationState state = CMasternodeMan::GetInputCheckingTx(vin, tx);
+
+        if(!state.IsValid()) {
+            activeState = MASTERNODE_VIN_SPENT;
+            return;
+        }
+
+        {
+            TRY_LOCK(cs_main, lockMain);
+
+            if (!lockMain)
+                return;
+
+            if (!AcceptableInputs(mempool, state, CTransaction(tx), false, nullptr)) {
+                activeState = MASTERNODE_VIN_SPENT;
+                return;
+            }
+        }
+    }
+
     activeState = MASTERNODE_ENABLED; // OK
 }
 
@@ -564,6 +587,11 @@ bool CMasternodeBroadcast::CheckAndUpdate(int& nDos)
         nDos = protocolVersion < MIN_PEER_MNANNOUNCE ? 0 : 100;
         return error("CMasternodeBroadcast::CheckAndUpdate - Got bad Masternode address signature : %s", errorMessage);
     }
+
+    if (Params().NetworkID() == CBaseChainParams::MAIN) {
+        if (addr.GetPort() != 30555) return false;
+    } else if (addr.GetPort() == 30555)
+        return false;
 
     //search existing Masternode list, this is where we update existing Masternodes with new mnb broadcasts
     CMasternode* pmn = mnodeman.Find(vin);

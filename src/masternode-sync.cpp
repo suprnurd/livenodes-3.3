@@ -42,17 +42,11 @@ bool CMasternodeSync::IsBlockchainSynced()
 
     if (fBlockchainSynced) return true;
 
-    if (fImporting || fReindex) return false;
-
     TRY_LOCK(cs_main, lockMain);
     if (!lockMain) return false;
 
     CBlockIndex* pindex = chainActive.Tip();
     if (pindex == NULL) return false;
-
-
-    if (pindex->nTime + 12 * 60 * 60 < GetTime())
-        return false;
 
     fBlockchainSynced = true;
 
