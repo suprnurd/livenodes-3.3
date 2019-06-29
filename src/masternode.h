@@ -1,5 +1,6 @@
 // Copyright (c) 2014-2015 The Dash developers
-// Copyright (c) 2015-2018 The PIVX developers
+// Copyright (c) 2015-2017 The PIVX developers
+// Copyright (c) 2018-2019 The Livenodes developers
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -15,9 +16,9 @@
 #include "util.h"
 
 #define MASTERNODE_MIN_CONFIRMATIONS 15
-#define MASTERNODE_MIN_MNP_SECONDS (10 * 60)
+#define MASTERNODE_MIN_MNP_SECONDS (4 * 60)
 #define MASTERNODE_MIN_MNB_SECONDS (5 * 60)
-#define MASTERNODE_PING_SECONDS (5 * 60)
+#define MASTERNODE_PING_SECONDS (4 * 60)
 #define MASTERNODE_EXPIRATION_SECONDS (120 * 60)
 #define MASTERNODE_REMOVAL_SECONDS (130 * 60)
 #define MASTERNODE_CHECK_SECONDS 5
@@ -59,9 +60,8 @@ public:
         READWRITE(vchSig);
     }
 
-    bool CheckAndUpdate(int& nDos, bool fRequireEnabled = true, bool fCheckSigTimeOnly = false);
+    bool CheckAndUpdate(int& nDos, bool fRequireEnabled = true);
     bool Sign(CKey& keyMasternode, CPubKey& pubKeyMasternode);
-    bool VerifySignature(CPubKey& pubKeyMasternode, int &nDos);
     void Relay();
 
     uint256 GetHash()
@@ -80,6 +80,7 @@ public:
         // by swapping the members of two classes,
         // the two classes are effectively swapped
         swap(first.vin, second.vin);
+
         swap(first.blockHash, second.blockHash);
         swap(first.sigTime, second.sigTime);
         swap(first.vchSig, second.vchSig);
@@ -101,7 +102,7 @@ public:
 };
 
 //
-// The Masternode Class. For managing the Obfuscation process. It contains the input of the 10000 PIV, signature to prove
+// The Masternode Class. For managing the Obfuscation process. It contains the input of the (1000, 5000, 10000) LivenodesCoin, signature to prove
 // it's the one who own that ip address and code for calculating the payment election.
 //
 class CMasternode
@@ -113,15 +114,10 @@ private:
 
 public:
     enum state {
-        MASTERNODE_PRE_ENABLED,
         MASTERNODE_ENABLED,
         MASTERNODE_EXPIRED,
-        MASTERNODE_OUTPOINT_SPENT,
         MASTERNODE_REMOVE,
-        MASTERNODE_WATCHDOG_EXPIRED,
-        MASTERNODE_POSE_BAN,
         MASTERNODE_VIN_SPENT,
-        MASTERNODE_POS_ERROR
     };
 
     enum LevelValue : unsigned {
@@ -134,8 +130,6 @@ public:
     CService addr;
     CPubKey pubKeyCollateralAddress;
     CPubKey pubKeyMasternode;
-    CPubKey pubKeyCollateralAddress1;
-    CPubKey pubKeyMasternode1;
     std::vector<unsigned char> sig;
     int activeState;
     CAmount deposit;
@@ -145,27 +139,18 @@ public:
     bool unitTest;
     bool allowFreeTx;
     int protocolVersion;
-    int nActiveState;
     int64_t nLastDsq; //the dsq count from the last dsq broadcast of this node
-    int nScanningErrorCount;
-    int nLastScanningErrorBlockHeight;
     CMasternodePing lastPing;
 
-    /////////////////////////////////////////////////////////////////////LIVENODES
     static unsigned Level(CAmount vin_val, int blockHeight);
     static unsigned Level(const CTxIn& vin, int blockHeight);
 
     static bool IsDepositCoins(CAmount);
     static bool IsDepositCoins(const CTxIn& vin, CAmount& vin_val);
-    /////////////////////////////////////////////////////////////////////LIVENODES
-
-    int64_t nLastDsee;  // temporary, do not save. Remove after migration to v12
-    int64_t nLastDseep; // temporary, do not save. Remove after migration to v12
 
     CMasternode();
     CMasternode(const CMasternode& other);
     CMasternode(const CMasternodeBroadcast& mnb);
-
 
     void swap(CMasternode& first, CMasternode& second) // nothrow
     {
@@ -189,8 +174,6 @@ public:
         swap(first.allowFreeTx, second.allowFreeTx);
         swap(first.protocolVersion, second.protocolVersion);
         swap(first.nLastDsq, second.nLastDsq);
-        swap(first.nScanningErrorCount, second.nScanningErrorCount);
-        swap(first.nLastScanningErrorBlockHeight, second.nLastScanningErrorBlockHeight);
     }
 
     CMasternode& operator=(CMasternode from)
@@ -231,20 +214,11 @@ public:
         READWRITE(unitTest);
         READWRITE(allowFreeTx);
         READWRITE(nLastDsq);
-        READWRITE(nScanningErrorCount);
-        READWRITE(nLastScanningErrorBlockHeight);
     }
 
     int64_t SecondsSincePayment();
 
     bool UpdateFromNewBroadcast(CMasternodeBroadcast& mnb);
-
-    inline uint64_t SliceHash(uint256& hash, int slice)
-    {
-        uint64_t n = 0;
-        memcpy(&n, &hash + slice * 64, 64);
-        return n;
-    }
 
     void Check(bool forceCheck = false);
 
@@ -266,24 +240,25 @@ public:
         lastPing = CMasternodePing();
     }
 
-    bool IsEnabled()
+    bool IsEnabled() const
     {
         return activeState == MASTERNODE_ENABLED;
     }
 
     int GetMasternodeInputAge()
     {
-        if (chainActive.Tip() == NULL) return 0;
+        auto chain_tip = chainActive.Tip();
 
-        if (cacheInputAge == 0) {
+        if (!chain_tip)
+            return 0;
+
+        if (!cacheInputAge) {
             cacheInputAge = GetInputAge(vin);
-            cacheInputAgeBlock = chainActive.Tip()->nHeight;
+            cacheInputAgeBlock = chain_tip->nHeight;
         }
 
-        return cacheInputAge + (chainActive.Tip()->nHeight - cacheInputAgeBlock);
+        return cacheInputAge + (chain_tip->nHeight - cacheInputAgeBlock);
     }
-
-    std::string GetStatus();
 
     std::string Status()
     {
@@ -293,7 +268,6 @@ public:
         if (activeState == CMasternode::MASTERNODE_EXPIRED) strStatus = "EXPIRED";
         if (activeState == CMasternode::MASTERNODE_VIN_SPENT) strStatus = "VIN_SPENT";
         if (activeState == CMasternode::MASTERNODE_REMOVE) strStatus = "REMOVE";
-        if (activeState == CMasternode::MASTERNODE_POS_ERROR) strStatus = "POS_ERROR";
 
         return strStatus;
     }
@@ -322,10 +296,7 @@ public:
     bool CheckAndUpdate(int& nDoS);
     bool CheckInputsAndAdd(int& nDos);
     bool Sign(CKey& keyCollateralAddress);
-    bool VerifySignature();
     void Relay();
-    std::string GetOldStrMessage();
-    std::string GetNewStrMessage();
 
     ADD_SERIALIZE_METHODS;
 
@@ -355,6 +326,7 @@ public:
     static bool Create(CTxIn vin, CService service, CKey keyCollateralAddressNew, CPubKey pubKeyCollateralAddressNew, CKey keyMasternodeNew, CPubKey pubKeyMasternodeNew, std::string& strErrorRet, CMasternodeBroadcast& mnbRet);
     static bool Create(std::string strService, std::string strKey, std::string strTxHash, std::string strOutputIndex, std::string& strErrorRet, CMasternodeBroadcast& mnbRet, bool fOffline = false);
     static bool CheckDefaultPort(std::string strService, std::string& strErrorRet, std::string strContext);
+    static bool CheckDefaultPort(const CService& service, std::string& strErrorRet, std::string strContext);
 };
 
 #endif

@@ -608,7 +608,6 @@ CBlockIndex* FindForkInGlobalIndex(const CChain& chain, const CBlockLocator& loc
 
 CCoinsViewCache* pcoinsTip = NULL;
 CBlockTreeDB* pblocktree = NULL;
-CSporkDB* pSporkDB = NULL;
 
 //////////////////////////////////////////////////////////////////////////////
 //
@@ -5445,7 +5444,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
 
 int ActiveProtocol()
 {
-    return (chainActive.Height() > nVersionFork) ? MIN_PEER_PROTO_VERSION_AFTER_ENFORCEMENT : MIN_PEER_PROTO_VERSION_BEFORE_ENFORCEMENT;
+    return MIN_PEER_PROTO_VERSION_AFTER_ENFORCEMENT;
 }
 
 // requires LOCK(cs_vRecvMsg)
