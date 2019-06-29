@@ -31,33 +31,6 @@ void ProcessMessageMasternodePayments(CNode* pfrom, std::string& strCommand, CDa
 bool IsBlockPayeeValid(const CBlock& block, int nBlockHeight);
 std::string GetRequiredPaymentsString(int nBlockHeight);
 bool IsBlockValueValid(const CBlock& block, CAmount nExpectedValue, CAmount nMinted);
-void FillBlockPayee(CMutableTransaction& txNew, CAmount nFees, bool fProofOfStake, bool fZPIVStake);
-
-void DumpMasternodePayments();
-
-/** Save Masternode Payment Data (mnpayments.dat)
- */
-class CMasternodePaymentDB
-{
-private:
-    boost::filesystem::path pathDB;
-    std::string strMagicMessage;
-
-public:
-    enum ReadResult {
-        Ok,
-        FileError,
-        HashReadError,
-        IncorrectHash,
-        IncorrectMagicMessage,
-        IncorrectMagicNumber,
-        IncorrectFormat
-    };
-
-    CMasternodePaymentDB();
-    bool Write(const CMasternodePayments& objToSave);
-    ReadResult Read(CMasternodePayments& objToLoad, bool fDryRun = false);
-};
 
 class CMasternodePayee
 {
@@ -271,10 +244,11 @@ public:
     bool IsTransactionValid(const CTransaction& txNew, int nBlockHeight);
     bool IsScheduled(CMasternode& mn, int nNotBlockHeight) const;
     bool CanVote(const COutPoint& outMasternode, int nBlockHeight, unsigned mnlevel);
-    CAmount FillBlockPayee(CMutableTransaction& txNew, CAmount block_value, bool fProofOfStake);
+
     int GetMinMasternodePaymentsProto();
     void ProcessMessageMasternodePayments(CNode* pfrom, std::string& strCommand, CDataStream& vRecv);
     std::string GetRequiredPaymentsString(int nBlockHeight);
+    CAmount FillBlockPayee(CMutableTransaction& txNew, int64_t block_value, bool fProofOfStake);
     std::string ToString() const;
 
     ADD_SERIALIZE_METHODS;
